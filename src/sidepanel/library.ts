@@ -166,6 +166,13 @@ function pageItem(p: PageRecord, labels: Label[]): HTMLLIElement {
   const summary = document.createElement('span');
   summary.textContent = t('pageSummary', liveAnnotations(p).length, new Date(p.updatedAt).toLocaleDateString(uiLanguage()));
   meta.append(summary);
+  if (isPdfPageKey(p.pageKey)) {
+    // A PDF and its web page can share a title.
+    const pdf = document.createElement('span');
+    pdf.className = 'badge pdf';
+    pdf.textContent = t('filterPdf');
+    meta.append(pdf);
+  }
   if (pageMatchesFilter(p, { kind: 'attention' })) {
     const badge = document.createElement('span');
     badge.className = 'badge needs-review';

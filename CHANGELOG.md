@@ -4,6 +4,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-28
+
+First public beta (Chrome Web Store, unlisted).
+
 ### Added
 - Labels for annotated pages: create them from the current page or the All tab, put several on a page, and filter the All tab by label chips. Rename, recolor, reorder and delete labels (delete can be undone).
 - Search in the All tab across page titles, addresses, quotes and notes, plus built-in filters: with notes, needs attention, PDF.
@@ -17,7 +21,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 
 ## [0.1.0] - 2026-10-28
 
-First beta release (Chrome Web Store, unlisted).
+Submitted to the Chrome Web Store, then replaced by 0.2.0 before it was published.
 
 ### Added
 - PDF support: a bundled pdf.js viewer with the same highlights, notes and re-anchoring. The viewer keeps the basics of Chrome's: links (references and other internal links jump to their target and Back returns, web links open in a new tab, mailto: opens your mail app), zoom (buttons, Ctrl/⌘ +/−/0, Ctrl+wheel; annotations stay attached), page number and go-to-page, table of contents, download and print. Chrome's PDF viewer shows an "Open in WWM" prompt; PDFs you have annotated reopen in WWM automatically.

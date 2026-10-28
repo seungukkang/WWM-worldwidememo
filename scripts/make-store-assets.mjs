@@ -6,6 +6,7 @@
  *   assets/store/<lang>/screenshot-1.png   1280×800  page after a site update + popover + side panel
  *   assets/store/<lang>/screenshot-2.png   1280×800  selection toolbar + side panel style bar & settings
  *   assets/store/<lang>/screenshot-3.png   1280×800  the demo article as a PDF in the WWM viewer
+ *   assets/store/<lang>/screenshot-4.png   1280×800  annotated pages organized with labels ([All] tab)
  *   assets/store/<lang>/promo-small.png    440×280
  *   assets/store/global/screenshot-*.png   language-independent set (English UI)
  *
@@ -41,6 +42,15 @@ const PLAN = {
     ],
     clickQuote: 'reversing a gradual noising process',
     selectQuote: 'repeatedly remove the predicted noise',
+    notesTargets: [
+      { quote: 'Each token is projected into a query, a key and a value.', style: { highlight: 'yellow' }, note: 'Q/K/V — draw this for the study group.' },
+      { quote: 'Several heads run in parallel', style: { highlight: 'green' } },
+    ],
+    labels: [
+      { name: 'Papers', color: 'blue' },
+      { name: 'Seminar', color: 'green' },
+      { name: 'Read later', color: 'orange' },
+    ],
     pdfTargets: [
       { quote: 'reversing a gradual noising process', style: { highlight: 'yellow' }, note: 'Core idea.' },
       { quote: 'Gaussian noise is added to an image step by step', style: { highlight: 'green' } },
@@ -59,6 +69,15 @@ const PLAN = {
     ],
     clickQuote: '거꾸로 되돌리는 방법으로 데이터를 생성한다',
     selectQuote: '반복해서 제거한다',
+    notesTargets: [
+      { quote: '각 토큰은 query, key, value로 투영된다.', style: { highlight: 'yellow' }, note: 'Q/K/V — 스터디에서 그림으로 설명할 것.' },
+      { quote: '여러 head가 병렬로 동작하며', style: { highlight: 'green' } },
+    ],
+    labels: [
+      { name: '논문', color: 'blue' },
+      { name: '세미나', color: 'green' },
+      { name: '나중에 읽기', color: 'orange' },
+    ],
     pdfTargets: [
       { quote: '거꾸로 되돌리는 방법', style: { highlight: 'yellow' }, note: '핵심 아이디어.' },
       { quote: 'Gaussian noise를 한 단계씩 더해', style: { highlight: 'green' } },
@@ -68,6 +87,7 @@ const PLAN = {
 };
 
 let current = 'en-v1.html';
+let currentLang = 'en';
 /** The demo article printed to PDF, per language (screenshot 3). */
 const pdfs = {};
 const server = createServer(async (req, res) => {
@@ -78,7 +98,8 @@ const server = createServer(async (req, res) => {
     return;
   }
   res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-  res.end(await readFile(join(demoDir, current)));
+  // A second, short demo page for the labels screenshot.
+  res.end(await readFile(join(demoDir, req.url?.startsWith('/reading/') ? `${currentLang}-notes.html` : current)));
 });
 await new Promise((r) => server.listen(0, '127.0.0.1', r));
 const origin = `http://127.0.0.1:${server.address().port}`;
@@ -187,6 +208,7 @@ for (const [lang, plan] of Object.entries(PLAN)) {
   const outDir = join(root, 'assets', 'store', lang);
   await mkdir(outDir, { recursive: true });
   current = `${lang}-v1.html`;
+  currentLang = lang;
 
   const context = await chromium.launchPersistentContext(await mkdtemp(join(tmpdir(), 'wwm-store-')), {
     channel: 'chromium',
@@ -262,6 +284,40 @@ for (const [lang, plan] of Object.entries(PLAN)) {
   await page.waitForTimeout(1200);
   await compose(canvas, await page.screenshot(), await panelShot(context, page, id), join(outDir, 'screenshot-3.png'));
 
+  // Screenshot 4: annotated pages organized with labels in the [All] tab.
+  await page.goto(`${origin}/reading/attention-notes`);
+  await page.waitForTimeout(500);
+  await annotate(page, sw, undefined, plan.notesTargets, (q) => selectQuote(page, q));
+  await page.goto(url);
+  await page.waitForTimeout(900);
+  const pageKeys = await sw.evaluate(async () =>
+    Object.keys(await chrome.storage.local.get(null))
+      .filter((k) => k.startsWith('wwm:page:'))
+      .map((k) => k.slice('wwm:page:'.length)),
+  );
+  const labelPanel = async (panel) => {
+    // Through the same messages the side panel uses.
+    await panel.evaluate(
+      async ({ labels, keys }) => {
+        const now = new Date().toISOString();
+        const ids = [];
+        for (const [order, l] of labels.entries()) {
+          const id = crypto.randomUUID();
+          ids.push(id);
+          await chrome.runtime.sendMessage({ type: 'wwm/label-save', label: { id, ...l, order, createdAt: now, updatedAt: now } });
+        }
+        for (const key of keys) {
+          const labelIds = key.startsWith('pdf:') ? [ids[0]] : key.includes('/reading/') ? [ids[2]] : [ids[0], ids[1]];
+          await chrome.runtime.sendMessage({ type: 'wwm/page-labels', pageKey: key, labelIds });
+        }
+      },
+      { labels: plan.labels, keys: pageKeys },
+    );
+    await panel.click('[role="tab"][data-tab="all"]');
+    await panel.waitForTimeout(500);
+  };
+  await compose(canvas, await page.screenshot(), await panelShot(context, page, id, labelPanel), join(outDir, 'screenshot-4.png'));
+
   const logo = await readFile(join(root, 'assets', 'brand', 'icon.svg'), 'utf8');
   await canvas.setViewportSize({ width: 440, height: 280 });
   await canvas.setContent(
@@ -285,7 +341,7 @@ if (only && only !== 'en') {
 }
 const globalDir = join(root, 'assets', 'store', 'global');
 await mkdir(globalDir, { recursive: true });
-for (const n of [1, 2, 3]) {
+for (const n of [1, 2, 3, 4]) {
   await copyFile(join(root, 'assets', 'store', 'en', `screenshot-${n}.png`), join(globalDir, `screenshot-${n}.png`));
 }
 console.log(`[wwm] global screenshots → ${globalDir}`);
