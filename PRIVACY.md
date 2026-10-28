@@ -57,7 +57,8 @@ The use of information received by WWM adheres to the [Chrome Web Store User Dat
 
 ## Contact
 
-Questions or concerns: open an issue at <https://github.com/seungukkang/WWM-worldwidememo/issues>.
+Questions, concerns or bug reports: open an issue at <https://github.com/seungukkang/WWM-worldwidememo/issues> (public pages only) or email <drkd.319@gmail.com>.
+Reports are used only to fix problems. A report contains only what you choose to include (for example a page address or quoted text); WWM never sends anything on its own.
 
 ---
 
@@ -116,4 +117,5 @@ WWM은 PDF 파일 자체를 저장하지 않으며 어디에도 전송하지 않
 
 ## 문의
 
-<https://github.com/seungukkang/WWM-worldwidememo/issues> 에 이슈를 남겨 주세요.
+문의나 버그 신고는 <https://github.com/seungukkang/WWM-worldwidememo/issues> 에 이슈를 남기거나(공개된 페이지만) 이메일 <drkd.319@gmail.com> 으로 보내 주세요.
+신고 내용은 문제 해결에만 사용합니다. 신고에는 사용자가 직접 넣은 내용(예: 페이지 주소, 인용문)만 포함되며, WWM이 스스로 무언가를 보내는 일은 없습니다.
