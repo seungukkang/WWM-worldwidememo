@@ -441,5 +441,13 @@
         "content": "$1"
       }
     }
+  },
+  "extensionUpdated": {
+    "message": "WWM was updated. Refresh this page to keep annotating.",
+    "description": "In-page notice after the extension was reloaded or updated"
+  },
+  "refreshPage": {
+    "message": "Refresh",
+    "description": "Notice action"
   }
 }

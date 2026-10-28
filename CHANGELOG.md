@@ -9,6 +9,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 - Search in the All tab across page titles, addresses, quotes and notes, plus built-in filters: with notes, needs attention, PDF.
 - JSON export includes labels (format version 2).
 
+### Fixed
+- After WWM is updated or reloaded, tabs that were already open no longer show a toolbar that silently does nothing: they show a "refresh this page" notice instead.
+
 ### Changed
 - Storage schema version 2. Existing data is migrated once on update, after a local backup.
 

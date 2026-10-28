@@ -69,8 +69,10 @@ button:disabled { cursor: default; opacity: .45; }
 .launch:hover { background: #ffe14d; }
 .toast {
   top: auto; left: 50%; bottom: 24px; transform: translateX(-50%);
-  padding: 6px 6px 6px 14px; gap: 10px;
+  padding: 6px 6px 6px 14px; gap: 10px; width: max-content; max-width: min(560px, calc(100vw - 32px));
 }
+.toast > span { flex: 1; min-width: 0; }
+.toast button { flex: none; white-space: nowrap; padding: 0 10px; }
 `;
 
 export interface UiHandlers {

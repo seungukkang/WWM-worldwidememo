@@ -41,23 +41,67 @@ let settings: Settings = DEFAULT_SETTINGS;
 let renderer: HighlightRenderer;
 let ui: WwmUi;
 
+// ---------------------------------------------------------------------------
+// Extension reloaded or updated while this tab was open
+// ---------------------------------------------------------------------------
+// Chrome leaves this script running in already-open tabs but cuts it off from
+// the extension: its UI still appears, yet every save fails ("Extension context
+// invalidated"). Detect that, stop, and ask the user to refresh the page.
+
+/** Notice text, read at start-up while chrome.i18n is still reachable. */
+let updatedNotice = { message: '', action: '' };
+let retired = false;
+
+function extensionAlive(): boolean {
+  try {
+    return Boolean(chrome.runtime?.id);
+  } catch {
+    return false;
+  }
+}
+
+/** Stop this orphaned script; with `notify`, tell the user to refresh. Existing highlights stay visible. */
+function retire(notify: boolean): void {
+  if (!retired) {
+    retired = true;
+    observer.disconnect();
+    clearTimeout(mutationTimer);
+    for (const [type, listener] of DOCUMENT_LISTENERS) document.removeEventListener(type, listener as EventListener);
+    ui.hideAll();
+    // Keep answering selections with the notice, so WWM never just silently does nothing.
+    document.addEventListener('mouseup', (e) => {
+      if (!ui.contains(e.target)) setTimeout(() => currentSelectionRange() && showUpdatedNotice(), 0);
+    });
+  }
+  if (notify) showUpdatedNotice();
+}
+
+function showUpdatedNotice(): void {
+  ui.showToast(updatedNotice.message, { label: updatedNotice.action, run: () => location.reload() }, 20_000);
+}
+
+/** Wrap a user action so it only runs while the extension is reachable. */
+function guarded<A extends unknown[]>(fn: (...args: A) => void): (...args: A) => void {
+  return (...args) => (extensionAlive() ? fn(...args) : retire(true));
+}
+
 const uiHandlers: UiHandlers = {
-  onApplyStyle: (style) => void createFromPending(style),
-  onRequestNote: () => {
+  onApplyStyle: guarded((style) => void createFromPending(style)),
+  onRequestNote: guarded(() => {
     if (!pendingRange) return;
     editingId = null;
     ui.showEditor(pendingRange.getBoundingClientRect());
-  },
-  onSaveNote: (text) => void saveNote(text),
-  onEdit: (id) => {
+  }),
+  onSaveNote: guarded((text) => void saveNote(text)),
+  onEdit: guarded((id) => {
     const e = renderer.get(id);
     if (!e) return;
     editingId = id;
     ui.showEditor(e.range.getBoundingClientRect(), e.annotation.note ?? '');
-  },
-  onDelete: (id) => void remove(id),
-  onConfirm: (id) => void confirmPosition(id),
-  onChangeStyle: (id, change) => void changeStyle(id, change),
+  }),
+  onDelete: guarded((id) => void remove(id)),
+  onConfirm: guarded((id) => void confirmPosition(id)),
+  onChangeStyle: guarded((id, change) => void changeStyle(id, change)),
 };
 
 function textIndex(): TextIndex {
@@ -233,6 +277,10 @@ function onSelectionEnd(): void {
   setTimeout(() => {
     const range = currentSelectionRange();
     if (!range) return;
+    if (!extensionAlive()) {
+      retire(true);
+      return;
+    }
     pendingRange = range;
     presentSelection(range);
   }, 0);
@@ -257,6 +305,11 @@ let mutationTimer: ReturnType<typeof setTimeout> | undefined;
 const observer = new MutationObserver(() => {
   clearTimeout(mutationTimer);
   mutationTimer = setTimeout(() => {
+    // Pages mutate on their own: stop quietly; the notice waits for a user action.
+    if (!extensionAlive()) {
+      retire(false);
+      return;
+    }
     cachedIndex = null;
     if (host.pageKey() !== pageKey) {
       lastReportSignature = '';
@@ -291,8 +344,17 @@ function onClick(e: MouseEvent): void {
   if (ui.contains(e.target) || currentSelectionRange()) return;
   const id = renderer.hitTest(e.clientX, e.clientY);
   const a = id ? renderer.get(id)?.annotation : undefined;
-  if (a) ui.showPopover(new DOMRect(e.clientX, e.clientY, 0, 0), a);
+  if (a && !extensionAlive()) retire(true);
+  else if (a) ui.showPopover(new DOMRect(e.clientX, e.clientY, 0, 0), a);
 }
+
+const DOCUMENT_LISTENERS: ReadonlyArray<[string, (e: never) => void]> = [
+  ['mouseup', onMouseUp],
+  ['keyup', onKeyUp],
+  ['keydown', onKeyDown],
+  ['mousedown', onMouseDown],
+  ['click', onClick],
+];
 
 const CONTENT_REQUESTS = new Set<string>(['wwm/scroll-to', 'wwm/refresh', 'wwm/command', 'wwm/apply-style', 'wwm/get-status']);
 
@@ -357,11 +419,8 @@ export function startAnnotator(h: AnnotatorHost): void {
   if (!isSupported()) {
     console.warn('[WWM] CSS Custom Highlight API not available; rendering disabled.');
   }
-  document.addEventListener('mouseup', onMouseUp);
-  document.addEventListener('keyup', onKeyUp);
-  document.addEventListener('keydown', onKeyDown);
-  document.addEventListener('mousedown', onMouseDown);
-  document.addEventListener('click', onClick);
+  updatedNotice = { message: t('extensionUpdated'), action: t('refreshPage') };
+  for (const [type, listener] of DOCUMENT_LISTENERS) document.addEventListener(type, listener as EventListener);
   chrome.runtime.onMessage.addListener(onMessage);
   observer.observe(host.root(), { childList: true, subtree: true, characterData: true });
   void load().catch((err: unknown) => console.warn('[WWM] load failed', err));

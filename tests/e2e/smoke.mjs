@@ -15,6 +15,8 @@
  *       closing), Esc, opacity; "side panel only" mode and the panel's style bar.
  *   6d. library: create a label from [This page], filter by it and search in [All],
  *       rename, delete + undo, export v2, storage schema v2.
+ *   8. (last: it turns the extension off here) after the extension is reloaded, an
+ *      already-open tab shows a "refresh this page" notice instead of a dead toolbar.
  *   7. PDF viewer basics: zoom keeps annotations, links (internal + Back, web, mailto),
  *      page number, outline, download, print.
  *
@@ -552,6 +554,23 @@ try {
   await page.click('#print');
   await page.waitForFunction(() => window.__printedPages !== undefined, null, { timeout: 15000 }).catch(() => undefined);
   check('PDF print renders every page', (await page.evaluate(() => window.__printedPages)) === 2);
+
+  // ---- extension reloaded while a tab is open (must stay last) --------------
+  await page.goto(url);
+  await page.waitForTimeout(600);
+  await sw.evaluate(() => chrome.runtime.reload()).catch(() => undefined);
+  await page.waitForTimeout(1500);
+  const para = await page.locator('p').nth(1).boundingBox();
+  await page.mouse.move(para.x + 3, para.y + 10);
+  await page.mouse.down();
+  await page.mouse.move(para.x + 200, para.y + 10, { steps: 6 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  const notice = await shadowBox(page, '[data-name="toast"]');
+  check(
+    'after an extension reload, an open tab asks to refresh instead of failing silently',
+    notice !== null && (await shadowBox(page, '[data-name="toolbar"]')) === null,
+  );
 
   await page.screenshot({ path: join(tmpdir(), 'wwm-e2e.png') });
   console.log(`screenshot: ${join(tmpdir(), 'wwm-e2e.png')}`);
