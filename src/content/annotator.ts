@@ -234,15 +234,22 @@ function onSelectionEnd(): void {
     const range = currentSelectionRange();
     if (!range) return;
     pendingRange = range;
-    const rect = range.getBoundingClientRect();
-    if (settings.toolbarMode === 'full') ui.showToolbar(rect);
-    else if (settings.toolbarMode === 'compact') {
-      const lines = range.getClientRects();
-      ui.showLauncher(rect, lines[lines.length - 1] ?? rect);
-    }
+    presentSelection(range);
+  }, 0);
+}
+
+/** Show the toolbar, the compact icon, or nothing for a selection, per the current settings. */
+function presentSelection(range: Range): void {
+  const rect = range.getBoundingClientRect();
+  if (settings.toolbarMode === 'full') ui.showToolbar(rect);
+  else if (settings.toolbarMode === 'compact') {
+    const lines = range.getClientRects();
+    ui.showLauncher(rect, lines[lines.length - 1] ?? rect);
+  } else {
     // 'panel': nothing on the page; the side panel's style bar, shortcuts and
     // the context menu act on the selection.
-  }, 0);
+    ui.hideAll();
+  }
 }
 
 // DOM changes: SPA navigation, lazy content, re-renders that detach our Ranges.
@@ -334,8 +341,16 @@ export function startAnnotator(h: AnnotatorHost): void {
   renderer = new HighlightRenderer();
   ui = new WwmUi(uiHandlers);
   const apply = (s: Settings): void => {
+    // A selection already on screen (toolbar/icon showing, or nothing shown in
+    // "side panel only" mode) is re-presented with the new settings right away.
+    const reshow = !ui.isEditing() && (ui.isSelectionUiOpen() || settings.toolbarMode === 'panel');
     settings = s;
     ui.applySettings(s);
+    const range = reshow ? currentSelectionRange() : null;
+    if (range) {
+      pendingRange = range;
+      presentSelection(range);
+    }
   };
   void loadSettings().then(apply, () => undefined);
   onSettingsChanged(apply);

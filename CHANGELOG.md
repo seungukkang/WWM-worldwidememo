@@ -30,6 +30,7 @@ First beta release (Chrome Web Store, unlisted).
 - Short highlights (a word or short phrase) are never moved automatically: they are restored only where their neighbouring text confirms it, otherwise you are asked or they are kept under "not found". Fixes highlights jumping between messages in chat apps.
 
 ### Fixed
+- Changing toolbar settings now applies to text that is already selected, not only to the next selection.
 - The side panel could list a new annotation twice (e.g. the first highlight in a PDF opened while the panel was open).
 - Short, unique quotes were labelled "moved" when only a neighbouring paragraph changed.
 - Fuzzy matches could start or end in the middle of a word.

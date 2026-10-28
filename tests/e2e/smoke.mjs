@@ -341,6 +341,22 @@ try {
     '"side panel only": nothing appears on the page',
     (await toolbar()) === null && (await shadowBox(page, '[data-name="launcher"]')) === null,
   );
+
+  // Settings changed while text is still selected apply to that selection at once.
+  await setSettings({ toolbarMode: 'full', toolbarPlacement: 'above' });
+  await page.waitForTimeout(200);
+  const nowFull = await toolbar();
+  await setSettings({ toolbarPlacement: 'below' });
+  await page.waitForTimeout(200);
+  const nowBelow = await toolbar();
+  await setSettings({ toolbarMode: 'compact' });
+  await page.waitForTimeout(200);
+  const nowCompact = (await toolbar()) === null && (await shadowBox(page, '[data-name="launcher"]')) !== null;
+  check(
+    'settings apply to the current selection without reselecting',
+    nowFull && nowFull.y + nowFull.height <= sel.top && nowBelow && nowBelow.y >= sel.bottom && nowCompact,
+    `full=${Boolean(nowFull)}, below=${nowBelow?.y}, compact=${nowCompact}`,
+  );
   await panel.close();
 
   // The side panel's style bar acts on the page's selection.

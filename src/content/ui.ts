@@ -271,6 +271,16 @@ export class WwmUi {
     return !this.toolbar.hidden || !this.launcher.hidden || !this.editor.hidden || !this.popover.hidden;
   }
 
+  /** The toolbar or the compact icon is showing for a selection. */
+  isSelectionUiOpen(): boolean {
+    return !this.toolbar.hidden || !this.launcher.hidden;
+  }
+
+  /** The note editor or an annotation popover is open (the user is working in it). */
+  isEditing(): boolean {
+    return !this.editor.hidden || !this.popover.hidden;
+  }
+
   // -- helpers --------------------------------------------------------------
 
   /** Same controls as the creation toolbar; the current style is shown pressed. */
