@@ -4,6 +4,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-28
+
+First beta release (Chrome Web Store, unlisted).
+
 ### Added
 - English / Korean UI (`_locales`), following the browser language.
 - Privacy policy (`PRIVACY.md`, en/ko), store screenshots & promo tiles generated from the real extension.

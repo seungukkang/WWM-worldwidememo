@@ -1,6 +1,6 @@
 {
   "name": "wwm-worldwidememo",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "description": "WWM (WorldWideMemo) — highlight, underline, bold and annotate any web page; annotations survive page updates via tiered re-anchoring.",
   "type": "module",
