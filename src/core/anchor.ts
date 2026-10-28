@@ -6,6 +6,11 @@
  *   T1 quote     — exact quote found elsewhere; disambiguate by context + position
  *   T2 fuzzy     — approximate match (Myers bit-parallel), scored by quote/context/position
  *
+ * Long quotes identify themselves, so an edited long quote may follow its text
+ * automatically. Short quotes (a word, a short phrase) occur in many places,
+ * so only the characters right next to them can confirm a location: they are
+ * never moved automatically and are never searched for approximately.
+ *
  * Design rule (AGENTS.md §6.4): a wrong anchor is worse than an orphan. When
  * in doubt, return `needs-review` or null. See docs/design/anchoring.md.
  */
@@ -32,6 +37,8 @@ export interface AnchorOptions {
   fuzzyAcceptContext: number;
   /** T2: quote similarity at/above which a match is offered as `needs-review`. */
   fuzzyReviewQuote: number;
+  /** T2: quote similarity at/above which a long quote is `moved` when its neighbouring text is unchanged. */
+  fuzzyAcceptQuoteInContext: number;
   /** T1/T2: if the top two distinct candidates are closer than this, ask the user. */
   ambiguityMargin: number;
   /** T1: mean context similarity at/above which an exact hit counts as `anchored`. */
@@ -45,13 +52,14 @@ export const DEFAULT_ANCHOR_OPTIONS: AnchorOptions = {
   fuzzyAcceptQuote: 0.9,
   fuzzyAcceptContext: 0.5,
   fuzzyReviewQuote: 0.6,
+  fuzzyAcceptQuoteInContext: 0.75,
   ambiguityMargin: 0.03,
   exactContextAnchored: 0.75,
   maxExactCandidates: 1000,
 };
 
-/** Quotes shorter than this (trimmed) are too generic to trust without context. */
-const MIN_DISTINCTIVE_QUOTE = 20;
+/** Quotes shorter than this (trimmed) are too generic to locate without their neighbouring text. */
+export const MIN_DISTINCTIVE_QUOTE = 20;
 
 const W = { quote: 50, prefix: 20, suffix: 20, position: 2 } as const;
 const W_SUM = W.quote + W.prefix + W.suffix + W.position;
@@ -70,9 +78,26 @@ export function textSimilarity(text: string, pattern: string): number {
 const ADJACENT_CONTEXT_CHARS = 8;
 
 /**
- * True if the characters right before/after the candidate equal the nearest
- * part of the stored prefix/suffix (sides with no stored context are ignored).
+ * Whether the characters right before/after the candidate equal the nearest
+ * part of the stored prefix/suffix. A side with no stored context (start/end
+ * of the document) counts as intact.
  */
+export function adjacentContext(
+  text: string,
+  c: { start: number; end: number },
+  prefix: string,
+  suffix: string,
+  n = ADJACENT_CONTEXT_CHARS,
+): { before: boolean; after: boolean } {
+  const kp = Math.min(n, prefix.length);
+  const ks = Math.min(n, suffix.length);
+  return {
+    before: kp === 0 || text.slice(c.start - kp, c.start) === prefix.slice(prefix.length - kp),
+    after: ks === 0 || text.slice(c.end, c.end + ks) === suffix.slice(0, ks),
+  };
+}
+
+/** True if both neighbouring sides are unchanged (see adjacentContext). */
 export function adjacentContextIntact(
   text: string,
   c: { start: number; end: number },
@@ -80,10 +105,7 @@ export function adjacentContextIntact(
   suffix: string,
   n = ADJACENT_CONTEXT_CHARS,
 ): boolean {
-  const kp = Math.min(n, prefix.length);
-  const ks = Math.min(n, suffix.length);
-  const before = kp === 0 || text.slice(c.start - kp, c.start) === prefix.slice(prefix.length - kp);
-  const after = ks === 0 || text.slice(c.end, c.end + ks) === suffix.slice(0, ks);
+  const { before, after } = adjacentContext(text, c, prefix, suffix, n);
   return before && after;
 }
 
@@ -161,6 +183,28 @@ function isAmbiguous(ranked: Array<Candidate & { s: { total: number } }>, margin
   return rival !== undefined && best.s.total - rival.s.total < margin;
 }
 
+/**
+ * Status for an exact occurrence of a short quote, decided by its neighbours:
+ * both sides unchanged → anchored; neither → not this place (null). With one
+ * side unchanged (e.g. an "(edited)" label appeared after it) it is anchored
+ * only if it is also still at its stored offset with agreeing context, since
+ * one side alone may be page chrome shared by many places (a chat composer
+ * right after the last message); otherwise the user is asked.
+ */
+function shortQuoteStatus(
+  text: string,
+  c: Candidate & { s: ReturnType<typeof scoreCandidate> },
+  prefix: string,
+  suffix: string,
+  atStoredOffset: boolean,
+  opt: AnchorOptions,
+): 'anchored' | 'needs-review' | null {
+  const { before, after } = adjacentContext(text, c, prefix, suffix);
+  if (before && after) return 'anchored';
+  if (!before && !after) return null;
+  return atStoredOffset && contextMean(c.s, prefix, suffix) >= opt.exactContextAnchored ? 'anchored' : 'needs-review';
+}
+
 export function anchorSelectors(
   text: string,
   selectors: readonly Selector[],
@@ -172,6 +216,7 @@ export function anchorSelectors(
   if (!quote || quote.exact.length === 0) return null; // position-only targets are not trusted
   const { exact, prefix, suffix } = quote;
   const hint = pos?.start;
+  const short = exact.trim().length < MIN_DISTINCTIVE_QUOTE;
 
   const build = (
     c: Candidate & { s: ReturnType<typeof scoreCandidate> },
@@ -189,9 +234,10 @@ export function anchorSelectors(
   // ---- T0: position -------------------------------------------------------
   if (pos && text.slice(pos.start, pos.end) === exact) {
     const [c] = rank(text, [{ start: pos.start, end: pos.end, quoteScore: 1 }], prefix, suffix, hint);
-    if (c && contextMean(c.s, prefix, suffix) >= opt.exactContextAnchored) {
-      return build(c, 'anchored', 'position');
-    }
+    const ok = short
+      ? c !== undefined && shortQuoteStatus(text, c, prefix, suffix, true, opt) === 'anchored'
+      : c !== undefined && contextMean(c.s, prefix, suffix) >= opt.exactContextAnchored;
+    if (c && ok) return build(c, 'anchored', 'position');
   }
 
   // ---- T1: exact quote ----------------------------------------------------
@@ -203,26 +249,27 @@ export function anchorSelectors(
   if (exactCands.length > 0) {
     const ranked = rank(text, exactCands, prefix, suffix, hint);
     const best = ranked[0]!;
+    if (short) {
+      // Only the neighbouring text can say which occurrence is ours; an
+      // occurrence without it (another message, inside "latest") is not taken.
+      const status = shortQuoteStatus(text, best, prefix, suffix, best.start === hint, opt);
+      if (status === null) return null;
+      return build(best, isAmbiguous(ranked, opt.ambiguityMargin) ? 'needs-review' : status, 'quote');
+    }
     if (isAmbiguous(ranked, opt.ambiguityMargin)) return build(best, 'needs-review', 'quote');
     const ctx = contextMean(best.s, prefix, suffix);
     const unique = exactCands.length === 1;
-    const longQuote = exact.trim().length >= MIN_DISTINCTIVE_QUOTE;
-    // The quote itself is intact: if it is unique and either distinctive or still
-    // flanked by its original neighbouring characters, edits further away (e.g. a
-    // rewritten previous paragraph leaking into the 32-char prefix) do not make
-    // the anchor less correct.
-    if (
-      ctx >= opt.exactContextAnchored ||
-      (unique && (longQuote || adjacentContextIntact(text, best, prefix, suffix)))
-    ) {
-      return build(best, 'anchored', 'quote');
-    }
-    // Relocated by context/position heuristics among several copies, or a short unique quote.
-    if (longQuote || unique) return build(best, 'moved', 'quote');
-    return build(best, 'needs-review', 'quote');
+    // The quote itself is intact and distinctive: if it is unique, edits further
+    // away (e.g. a rewritten previous paragraph in the prefix) do not make the
+    // anchor less correct.
+    if (ctx >= opt.exactContextAnchored || unique) return build(best, 'anchored', 'quote');
+    // Picked among several copies by context/position heuristics.
+    return build(best, 'moved', 'quote');
   }
 
   // ---- T2: fuzzy ----------------------------------------------------------
+  // An approximate short quote matches almost anywhere ("test" ~ "best").
+  if (short) return null;
   const maxErrors = Math.max(1, Math.floor(exact.length * opt.maxErrorRatio));
   const fuzzy = search(text, exact, maxErrors);
   if (fuzzy.length === 0) return null;
@@ -233,11 +280,17 @@ export function anchorSelectors(
   const ranked = rank(text, fuzzyCands, prefix, suffix, hint);
   const best = ranked[0]!;
   if (best.s.quote < opt.fuzzyReviewQuote) return null;
+  const ambiguous = isAmbiguous(ranked, opt.ambiguityMargin);
   if (
+    !ambiguous &&
     best.s.quote >= opt.fuzzyAcceptQuote &&
-    contextMean(best.s, prefix, suffix) >= opt.fuzzyAcceptContext &&
-    !isAmbiguous(ranked, opt.ambiguityMargin)
+    contextMean(best.s, prefix, suffix) >= opt.fuzzyAcceptContext
   ) {
+    return build(best, 'moved', 'fuzzy');
+  }
+  // A few words replaced or a phrase added: if the text right before and after
+  // is unchanged, this is the same passage, edited.
+  if (!ambiguous && best.s.quote >= opt.fuzzyAcceptQuoteInContext && adjacentContextIntact(text, best, prefix, suffix)) {
     return build(best, 'moved', 'fuzzy');
   }
   return build(best, 'needs-review', 'fuzzy');
