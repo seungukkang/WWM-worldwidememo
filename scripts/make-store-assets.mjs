@@ -2,13 +2,21 @@
 /**
  * Generate Chrome Web Store assets from the real extension (dist/) running on
  * the demo article in assets/store/demo/:
- *   assets/store/<lang>/screenshot-1.png   1280×800  (page + side panel, after a site update)
+ *   assets/store/icon-128.png              store icon (96×96 artwork + 16px padding)
+ *   assets/store/<lang>/screenshot-1.png   1280×800  page after a site update + popover + side panel
+ *   assets/store/<lang>/screenshot-2.png   1280×800  selection toolbar + side panel style bar & settings
+ *   assets/store/<lang>/screenshot-3.png   1280×800  the demo article as a PDF in the WWM viewer
  *   assets/store/<lang>/promo-small.png    440×280
+ *   assets/store/global/screenshot-*.png   language-independent set (English UI)
  *
- * Usage: npm run build && npm run store-assets
+ * Usage: npm run build && npm run store-assets      (WWM_STORE_LANG=en|ko for one language)
+ * macOS: Chromium ignores --lang and uses the system language. To render the
+ *   English set on a Korean system, set the test browser's language first:
+ *   defaults write com.google.chrome.for.testing AppleLanguages -array en
+ *   (and `defaults delete com.google.chrome.for.testing AppleLanguages` after).
  * Needs: playwright + Chromium (see docs/guides or README "Development").
  */
-import { mkdtemp, mkdir, readFile } from 'node:fs/promises';
+import { copyFile, mkdtemp, mkdir, readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -32,6 +40,12 @@ const PLAN = {
       { quote: 'distillation', style: { bold: true }, note: 'Also read about consistency models.' },
     ],
     clickQuote: 'reversing a gradual noising process',
+    selectQuote: 'repeatedly remove the predicted noise',
+    pdfTargets: [
+      { quote: 'reversing a gradual noising process', style: { highlight: 'yellow' }, note: 'Core idea.' },
+      { quote: 'Gaussian noise is added to an image step by step', style: { highlight: 'green' } },
+      { quote: 'start from pure noise', style: { underline: true } },
+    ],
   },
   ko: {
     tagline: '사이트가 바뀌어도 살아남는 하이라이트와 메모',
@@ -44,16 +58,95 @@ const PLAN = {
       { quote: 'distillation', style: { bold: true }, note: 'consistency model도 같이 읽어볼 것.' },
     ],
     clickQuote: '거꾸로 되돌리는 방법으로 데이터를 생성한다',
+    selectQuote: '반복해서 제거한다',
+    pdfTargets: [
+      { quote: '거꾸로 되돌리는 방법', style: { highlight: 'yellow' }, note: '핵심 아이디어.' },
+      { quote: 'Gaussian noise를 한 단계씩 더해', style: { highlight: 'green' } },
+      { quote: '순수한 노이즈에서 출발해', style: { underline: true } },
+    ],
   },
 };
 
 let current = 'en-v1.html';
+/** The demo article printed to PDF, per language (screenshot 3). */
+const pdfs = {};
 const server = createServer(async (req, res) => {
+  const pdf = req.url?.match(/^\/papers\/(\w+)\.pdf$/);
+  if (pdf) {
+    res.writeHead(200, { 'content-type': 'application/pdf' });
+    res.end(pdfs[pdf[1]]);
+    return;
+  }
   res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
   res.end(await readFile(join(demoDir, current)));
 });
 await new Promise((r) => server.listen(0, '127.0.0.1', r));
-const url = `http://127.0.0.1:${server.address().port}/lab-notes/diffusion-intro`;
+const origin = `http://127.0.0.1:${server.address().port}`;
+const url = `${origin}/lab-notes/diffusion-intro`;
+
+const printer = await chromium.launch();
+for (const lang of Object.keys(PLAN)) {
+  const p = await printer.newPage();
+  await p.setContent(await readFile(join(demoDir, `${lang}-v1.html`), 'utf8'));
+  pdfs[lang] = await p.pdf({ format: 'A4', printBackground: true });
+}
+await printer.close();
+
+await copyFile(join(root, 'assets', 'icons', 'icon-128.png'), join(root, 'assets', 'store', 'icon-128.png'));
+
+/** Page (920 wide) + side panel (360 wide) side by side, 1280×800. */
+async function compose(canvas, pageShot, panelShot, path) {
+  await canvas.setViewportSize({ width: 1280, height: 800 });
+  await canvas.setContent(
+    `<body style="margin:0;display:flex;background:#e7e3da">
+       <img src="data:image/png;base64,${pageShot.toString('base64')}" width="920" height="800">
+       <img src="data:image/png;base64,${panelShot.toString('base64')}" width="360" height="800"
+            style="box-shadow:-1px 0 0 #d6d1c4">
+     </body>`,
+  );
+  await canvas.screenshot({ path });
+}
+
+/** Annotate the current selection in the active tab, then set styles/notes in storage. */
+async function annotate(page, sw, tabId, targets, select) {
+  await page.bringToFront(); // commands go to the active tab
+  for (const target of targets) {
+    await select(target.quote);
+    await sw.evaluate(async (id) => {
+      const tab = id ?? (await chrome.tabs.query({ active: true }))[0].id;
+      await chrome.tabs.sendMessage(tab, { type: 'wwm/command', command: 'highlight' });
+    }, tabId);
+    await page.waitForTimeout(250);
+  }
+  // The toolbar is a closed shadow root: apply the planned styles/notes in storage.
+  await sw.evaluate(async (targets) => {
+    const all = await chrome.storage.local.get(null);
+    for (const [key, rec] of Object.entries(all)) {
+      if (!key.startsWith('wwm:page:')) continue;
+      for (const a of rec.annotations) {
+        const exact = a.target.selectors.find((s) => s.type === 'TextQuoteSelector')?.exact;
+        const t = targets.find((x) => x.quote === exact);
+        if (!t) continue;
+        a.style = t.style;
+        if (t.note) a.note = t.note;
+      }
+      await chrome.storage.local.set({ [key]: rec });
+    }
+  }, targets);
+}
+
+/** Open the side panel page for the tab that is in front, then return its screenshot. */
+async function panelShot(context, front, id, before) {
+  const panel = await context.newPage();
+  await panel.setViewportSize({ width: 360, height: 800 });
+  await front.bringToFront();
+  await panel.goto(`chrome-extension://${id}/sidepanel/index.html`);
+  await panel.waitForTimeout(700);
+  if (before) await before(panel);
+  const shot = await panel.screenshot();
+  await panel.close();
+  return shot;
+}
 
 async function selectQuote(page, quote) {
   await page.evaluate((q) => {
@@ -88,7 +181,9 @@ async function quoteRect(page, quote) {
   }, quote);
 }
 
+const only = process.env.WWM_STORE_LANG;
 for (const [lang, plan] of Object.entries(PLAN)) {
+  if (only && lang !== only) continue;
   const outDir = join(root, 'assets', 'store', lang);
   await mkdir(outDir, { recursive: true });
   current = `${lang}-v1.html`;
@@ -106,61 +201,66 @@ for (const [lang, plan] of Object.entries(PLAN)) {
   await page.goto(url);
   await page.waitForTimeout(500);
 
-  // 1) Annotate v1 through the real content script (command → selection → upsert).
-  for (const target of plan.targets) {
-    await selectQuote(page, target.quote);
-    await sw.evaluate(async () => {
-      const [tab] = await chrome.tabs.query({ active: true });
-      await chrome.tabs.sendMessage(tab.id, { type: 'wwm/command', command: 'highlight' });
-    });
-    await page.waitForTimeout(250);
-  }
+  const id = new URL(sw.url()).host;
+  const canvas = await context.newPage();
 
-  // 2) Apply the planned styles/notes directly in storage (the toolbar is a closed shadow root).
-  await sw.evaluate(async (targets) => {
-    const all = await chrome.storage.local.get(null);
-    for (const [key, rec] of Object.entries(all)) {
-      if (!key.startsWith('wwm:page:')) continue;
-      for (const a of rec.annotations) {
-        const exact = a.target.selectors.find((s) => s.type === 'TextQuoteSelector')?.exact;
-        const t = targets.find((x) => x.quote === exact);
-        if (!t) continue;
-        a.style = t.style;
-        if (t.note) a.note = t.note;
-      }
-      await chrome.storage.local.set({ [key]: rec });
-    }
-  }, plan.targets);
-
-  // 3) The site gets updated: one sentence rewritten, one paragraph removed.
+  // Screenshot 1: annotate v1, then the site gets updated (one sentence
+  // rewritten, one paragraph removed); open an annotation's popover.
+  await annotate(page, sw, undefined, plan.targets, (q) => selectQuote(page, q));
   current = `${lang}-v2.html`;
   await page.reload();
   await page.waitForTimeout(900);
   const pos = await quoteRect(page, plan.clickQuote);
   if (pos) await page.mouse.click(pos.x, pos.y);
   await page.waitForTimeout(300);
-  const pageShot = await page.screenshot();
+  await compose(canvas, await page.screenshot(), await panelShot(context, page, id), join(outDir, 'screenshot-1.png'));
 
-  // 4) Side panel for the same tab.
-  const id = new URL(sw.url()).host;
-  const panel = await context.newPage();
-  await panel.setViewportSize({ width: 360, height: 800 });
+  // Screenshot 2: the selection toolbar (with its drag handle) and the side
+  // panel's style bar and toolbar settings.
   await page.bringToFront();
-  await panel.goto(`chrome-extension://${id}/sidepanel/index.html`);
-  await panel.waitForTimeout(700);
-  const panelShot = await panel.screenshot();
-
-  // 5) Compose 1280×800 and the promo tile.
-  const canvas = await context.newPage();
-  await canvas.setViewportSize({ width: 1280, height: 800 });
-  await canvas.setContent(
-    `<body style="margin:0;display:flex;background:#e7e3da">
-       <img src="data:image/png;base64,${pageShot.toString('base64')}" width="920" height="800">
-       <img src="data:image/png;base64,${panelShot.toString('base64')}" width="360" height="800"
-            style="box-shadow:-1px 0 0 #d6d1c4">
-     </body>`,
+  await page.keyboard.press('Escape');
+  await selectQuote(page, plan.selectQuote);
+  await page.evaluate(() => document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })));
+  await page.waitForTimeout(300);
+  const toolbarShot = await page.screenshot();
+  await compose(
+    canvas,
+    toolbarShot,
+    await panelShot(context, page, id, (panel) => panel.click('#settings-toggle')),
+    join(outDir, 'screenshot-2.png'),
   );
-  await canvas.screenshot({ path: join(outDir, 'screenshot-1.png') });
+
+  // Screenshot 3: the same article as a PDF in the WWM viewer.
+  await page.goto(`chrome-extension://${id}/pdf/viewer.html?file=${encodeURIComponent(`${origin}/papers/${lang}.pdf`)}`);
+  await page.waitForSelector('.textLayer span', { timeout: 15000 });
+  await page.waitForTimeout(500);
+  const viewerTab = await page.evaluate(async () => (await chrome.tabs.getCurrent()).id);
+  await annotate(page, sw, viewerTab, plan.pdfTargets, (q) =>
+    page.evaluate((quote) => {
+      const walker = document.createTreeWalker(document.getElementById('pages'), NodeFilter.SHOW_TEXT);
+      const nodes = [];
+      let text = '';
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+        nodes.push([n, text.length]);
+        text += n.data;
+      }
+      const i = text.indexOf(quote);
+      if (i < 0) throw new Error(`quote not in PDF: ${quote}`);
+      const at = (o) => nodes.findLast(([, s]) => s <= o);
+      const [sn, so] = at(i);
+      const [en, eo] = at(i + quote.length);
+      const r = document.createRange();
+      r.setStart(sn, i - so);
+      r.setEnd(en, i + quote.length - eo);
+      getSelection().removeAllRanges();
+      getSelection().addRange(r);
+    }, q),
+  );
+  await page.evaluate(() => getSelection().removeAllRanges());
+  await page.reload();
+  await page.waitForSelector('.textLayer span');
+  await page.waitForTimeout(1200);
+  await compose(canvas, await page.screenshot(), await panelShot(context, page, id), join(outDir, 'screenshot-3.png'));
 
   const logo = await readFile(join(root, 'assets', 'brand', 'icon.svg'), 'utf8');
   await canvas.setViewportSize({ width: 440, height: 280 });
@@ -177,4 +277,16 @@ for (const [lang, plan] of Object.entries(PLAN)) {
   await context.close();
   console.log(`[wwm] store assets → ${outDir}`);
 }
+
+// Language-independent screenshots: the English set.
+if (only && only !== 'en') {
+  server.close();
+  process.exit(0);
+}
+const globalDir = join(root, 'assets', 'store', 'global');
+await mkdir(globalDir, { recursive: true });
+for (const n of [1, 2, 3]) {
+  await copyFile(join(root, 'assets', 'store', 'en', `screenshot-${n}.png`), join(globalDir, `screenshot-${n}.png`));
+}
+console.log(`[wwm] global screenshots → ${globalDir}`);
 server.close();
