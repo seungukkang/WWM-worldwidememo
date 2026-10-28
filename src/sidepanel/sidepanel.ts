@@ -47,24 +47,29 @@ async function refreshActiveTab(): Promise<void> {
   await renderPage();
 }
 
-async function renderPage(): Promise<void> {
-  const list = $<HTMLUListElement>('page-list');
-  const orphanList = $<HTMLUListElement>('orphan-list');
-  list.replaceChildren();
-  orphanList.replaceChildren();
-  void renderHistory();
-  if (!activePageKey) return;
+/**
+ * Renders can overlap (one edit broadcasts several changes). Each render
+ * fetches first and replaces the DOM in one step, and only the latest render
+ * of each kind may write — otherwise overlapping renders append twice.
+ */
+const renderSeq = { page: 0, all: 0, history: 0 };
 
-  const { annotations } = await sendToBackground({ type: 'wwm/list', pageKey: activePageKey });
+async function renderPage(): Promise<void> {
+  const seq = ++renderSeq.page;
+  void renderHistory();
+  const annotations = activePageKey
+    ? (await sendToBackground({ type: 'wwm/list', pageKey: activePageKey })).annotations
+    : [];
+  if (seq !== renderSeq.page) return;
+
   const live = annotations.filter((a) => a.anchor?.status !== 'orphaned');
   const orphans = annotations.filter((a) => a.anchor?.status === 'orphaned');
   const review = annotations.filter((a) => a.anchor?.status === 'needs-review').length;
 
-  if (live.length === 0 && orphans.length === 0) {
-    list.append(empty(t('emptyPage')));
-  }
-  for (const a of live) list.append(item(a, true));
-  for (const a of orphans) orphanList.append(item(a, false));
+  const items = live.map((a) => item(a, true));
+  if (activePageKey && items.length === 0 && orphans.length === 0) items.push(empty(t('emptyPage')));
+  $<HTMLUListElement>('page-list').replaceChildren(...items);
+  $<HTMLUListElement>('orphan-list').replaceChildren(...orphans.map((a) => item(a, false)));
 
   $('orphans').hidden = orphans.length === 0;
   $('orphan-count').textContent = `(${orphans.length})`;
@@ -79,7 +84,9 @@ async function renderPage(): Promise<void> {
 }
 
 async function renderHistory(): Promise<void> {
+  const seq = ++renderSeq.history;
   const state = activePageKey ? await sendToBackground({ type: 'wwm/history', pageKey: activePageKey }) : {};
+  if (seq !== renderSeq.history) return;
   const set = (id: string, action: HistoryAction | undefined, withAction: MessageKey, none: MessageKey): void => {
     const b = $<HTMLButtonElement>(id);
     b.disabled = action === undefined;
@@ -98,12 +105,13 @@ async function stepHistory(type: 'wwm/undo' | 'wwm/redo'): Promise<void> {
 }
 
 async function renderAll(): Promise<void> {
-  const list = $<HTMLUListElement>('all-list');
-  list.replaceChildren();
+  const seq = ++renderSeq.all;
   const { pages } = await sendToBackground({ type: 'wwm/list-pages' });
+  if (seq !== renderSeq.all) return;
   const nonEmpty = pages.filter((p) => p.annotations.some((a) => !a.deletedAt));
-  if (nonEmpty.length === 0) list.append(empty(t('emptyAll')));
-  for (const p of nonEmpty) list.append(pageItem(p));
+  $<HTMLUListElement>('all-list').replaceChildren(
+    ...(nonEmpty.length === 0 ? [empty(t('emptyAll'))] : nonEmpty.map(pageItem)),
+  );
 }
 
 function item(a: Annotation, clickable: boolean): HTMLLIElement {

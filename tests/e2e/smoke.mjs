@@ -266,6 +266,15 @@ try {
   check('PDF prompt over Chrome viewer', await page.evaluate(() => Boolean(document.querySelector('wwm-root'))));
 
   await page.goto(`chrome-extension://${extId}/pdf/viewer.html?file=${encodeURIComponent(pdfUrl)}`);
+  // A side panel already open while the PDF loads (regression: the first highlight
+  // was listed twice because overlapping panel renders both appended).
+  const viewerTabId = await page.evaluate(async () => (await chrome.tabs.getCurrent()).id);
+  const pdfPanel = await context.newPage();
+  await pdfPanel.addInitScript((id) => {
+    chrome.tabs.query = async () => [await chrome.tabs.get(id)];
+  }, viewerTabId);
+  await pdfPanel.goto(`chrome-extension://${extId}/sidepanel/index.html`);
+  await page.bringToFront();
   await page.waitForSelector('.textLayer span', { timeout: 15000 });
   await page.waitForTimeout(500);
   const pdfQuote = 'Sampling is slow because it requires hundreds';
@@ -290,10 +299,9 @@ try {
     getSelection().addRange(r);
     return getSelection().toString();
   }, pdfQuote);
-  await sw.evaluate(async () => {
-    const [tab] = await chrome.tabs.query({ active: true });
-    await chrome.tabs.sendMessage(tab.id, { type: 'wwm/command', command: 'highlight' });
-  });
+  await sw.evaluate(async (id) => {
+    await chrome.tabs.sendMessage(id, { type: 'wwm/command', command: 'highlight' });
+  }, viewerTabId);
   await page.waitForTimeout(400);
   const pdfKeys = Object.keys(await sw.evaluate(() => chrome.storage.local.get(null))).filter((k) =>
     k.startsWith('wwm:page:pdf:'),
@@ -304,6 +312,10 @@ try {
     selected === pdfQuote && pdfKeys.length === 1 && (await pdfYellow()) === 1,
     `selected="${selected}", keys=${pdfKeys.length}`,
   );
+  await pdfPanel.waitForTimeout(800);
+  const panelItems = await pdfPanel.evaluate(() => document.querySelectorAll('#page-list .item').length);
+  check('side panel lists the first PDF highlight once', panelItems === 1, `${panelItems} items`);
+  await pdfPanel.close();
 
   await page.reload();
   await page.waitForSelector('.textLayer span');
