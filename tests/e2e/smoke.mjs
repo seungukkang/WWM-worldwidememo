@@ -23,7 +23,7 @@ const dist = join(root, 'dist');
 const fixtures = join(root, 'tests', 'fixtures', 'pages');
 const { chromium } = await import('playwright');
 const lang = process.env.WWM_LANG ?? 'en';
-const catalog = JSON.parse(await readFile(join(root, 'src', '_locales', lang, 'messages.json'), 'utf8'));
+const loadCatalog = async (l) => JSON.parse(await readFile(join(root, 'src', '_locales', l, 'messages.json'), 'utf8'));
 
 // Serve one URL whose content we can swap between versions.
 let version = 'article-v1.html';
@@ -48,7 +48,11 @@ const context = await chromium.launchPersistentContext(await mkdtemp(join(tmpdir
   channel: 'chromium',
   headless: true,
   locale: lang,
-  args: [`--disable-extensions-except=${dist}`, `--load-extension=${dist}`, `--lang=${lang}`],
+  args: [
+    `--disable-extensions-except=${dist}`,
+    `--load-extension=${dist}`,
+    `--lang=${lang}`,
+  ],
 });
 
 try {
@@ -59,7 +63,11 @@ try {
     ui: chrome.i18n.getUILanguage(),
     menu: chrome.i18n.getMessage('menuHighlight'),
   }));
-  check(`UI strings localized (${lang})`, i18n.menu === catalog.menuHighlight.message, `ui=${i18n.ui}, "${i18n.menu}"`);
+  // macOS Chrome ignores --lang and follows the system language, so verify against the locale actually in use.
+  const uiLang = i18n.ui.startsWith('ko') ? 'ko' : 'en';
+  if (uiLang !== lang) console.log(`WARN  requested ${lang} but browser UI is ${i18n.ui} (system language); checking ${uiLang}`);
+  const catalog = await loadCatalog(uiLang);
+  check(`UI strings localized (${uiLang})`, i18n.menu === catalog.menuHighlight.message, `ui=${i18n.ui}, "${i18n.menu}"`);
 
   const page = await context.newPage();
   await page.goto(url);
