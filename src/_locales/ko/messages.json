@@ -406,5 +406,13 @@
   "refreshPage": {
     "message": "새로고침",
     "description": "Notice action"
+  },
+  "renamePage": {
+    "message": "이름 바꾸기",
+    "description": "All tab: rename a page"
+  },
+  "renamePlaceholder": {
+    "message": "이름 입력 후 Enter (비우면 원래 제목)",
+    "description": "All tab: rename input"
   }
 }

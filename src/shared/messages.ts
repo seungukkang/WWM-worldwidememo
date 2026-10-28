@@ -29,10 +29,12 @@ export type BackgroundRequest =
   | { type: 'wwm/label-save'; label: Label }
   | { type: 'wwm/label-delete'; id: string }
   | { type: 'wwm/labels-reorder'; ids: string[] }
-  | { type: 'wwm/page-labels'; pageKey: string; labelIds: string[] };
+  | { type: 'wwm/page-labels'; pageKey: string; labelIds: string[] }
+  /** Rename a page in the library; an empty title restores the page's own title. */
+  | { type: 'wwm/page-title'; pageKey: string; title: string };
 
 export interface BackgroundResponseMap {
-  'wwm/list': { annotations: Annotation[]; labelIds: string[] };
+  'wwm/list': { annotations: Annotation[]; labelIds: string[]; customTitle?: string };
   'wwm/list-pages': { pages: PageRecord[] };
   'wwm/upsert': { annotation: Annotation };
   'wwm/delete': { ok: boolean };
@@ -50,6 +52,7 @@ export interface BackgroundResponseMap {
   'wwm/label-delete': { ok: boolean };
   'wwm/labels-reorder': { ok: true };
   'wwm/page-labels': { ok: boolean };
+  'wwm/page-title': { ok: boolean };
 }
 
 export type BackgroundResponse<T extends BackgroundRequest['type']> = BackgroundResponseMap[T];

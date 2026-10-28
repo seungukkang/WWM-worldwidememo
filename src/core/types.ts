@@ -91,6 +91,8 @@ export interface PageRecord {
   annotations: Annotation[];
   /** Labels the user put on this page (ids into `wwm:labels`; deleted labels are ignored). */
   labelIds?: string[];
+  /** Name the user gave the page; shown instead of `title`, which follows the page's <title>. */
+  customTitle?: string;
 }
 
 export type LabelColor = 'red' | 'orange' | 'yellow' | 'green' | 'teal' | 'blue' | 'purple' | 'gray';

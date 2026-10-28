@@ -170,3 +170,4 @@ main { flex: 1; padding: 8px 12px; }
 .item .icon-btn:hover { border-color: var(--line); }
 .item .label-menu input[type="checkbox"] { margin: 0; }
 .badge.pdf { color: var(--muted); }
+.item-head .rename { flex: 1; min-width: 0; font-size: 13px; }

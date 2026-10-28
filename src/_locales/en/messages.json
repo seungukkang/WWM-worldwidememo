@@ -449,5 +449,13 @@
   "refreshPage": {
     "message": "Refresh",
     "description": "Notice action"
+  },
+  "renamePage": {
+    "message": "Rename",
+    "description": "All tab: rename a page"
+  },
+  "renamePlaceholder": {
+    "message": "Name (leave empty for the page's own title), then Enter",
+    "description": "All tab: rename input"
   }
 }

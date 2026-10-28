@@ -26,11 +26,16 @@ export function liveAnnotations(page: PageRecord): Annotation[] {
 
 const fold = (s: string): string => s.normalize('NFC').toLocaleLowerCase();
 
+/** The name shown for a page: the user's name for it, else its title, else its address. */
+export function pageDisplayTitle(page: Pick<PageRecord, 'customTitle' | 'title' | 'url'>): string {
+  return page.customTitle || page.title || page.url;
+}
+
 /** Every whitespace-separated term occurs in the title, URL, a quote or a note. */
 export function pageMatchesQuery(page: PageRecord, query: string): boolean {
   const terms = fold(query).split(/\s+/).filter(Boolean);
   if (terms.length === 0) return true;
-  const parts = [page.title ?? '', page.url];
+  const parts = [page.customTitle ?? '', page.title ?? '', page.url];
   for (const a of liveAnnotations(page)) {
     parts.push(getSelector(a.target.selectors, 'TextQuoteSelector')?.exact ?? '', a.note ?? '');
   }

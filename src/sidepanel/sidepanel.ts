@@ -42,6 +42,8 @@ const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) 
 
 let activeTabId: number | undefined;
 let activePageKey = '';
+/** The tab's own title; the page tab shows the user's name for the page instead, if any. */
+let activeTabTitle = '';
 /** False until the tab itself reported its page key (e.g. the PDF viewer is still loading). */
 let keyFromTab = false;
 
@@ -52,7 +54,8 @@ async function refreshActiveTab(): Promise<void> {
   const fromTab = await tabPageKey();
   keyFromTab = fromTab !== undefined;
   activePageKey = fromTab ?? (tab?.url ? normalizePageKey(tab.url) : '');
-  $('page-title').textContent = tab?.title ?? '';
+  activeTabTitle = tab?.title ?? '';
+  $('page-title').textContent = activeTabTitle;
   await renderPage();
 }
 
@@ -68,13 +71,14 @@ let pageLabelMenuOpen = false;
 async function renderPage(): Promise<void> {
   const seq = ++renderSeq.page;
   void renderHistory();
-  const [{ annotations, labelIds }, { labels }] = await Promise.all([
+  const [{ annotations, labelIds, customTitle }, { labels }] = await Promise.all([
     activePageKey
       ? sendToBackground({ type: 'wwm/list', pageKey: activePageKey })
-      : Promise.resolve({ annotations: [], labelIds: [] }),
+      : Promise.resolve({ annotations: [], labelIds: [], customTitle: undefined }),
     sendToBackground({ type: 'wwm/labels' }),
   ]);
   if (seq !== renderSeq.page) return;
+  $('page-title').textContent = customTitle || activeTabTitle;
   renderPageLabels(annotations.length > 0, labelIds, labels);
 
   const live = annotations.filter((a) => a.anchor?.status !== 'orphaned');

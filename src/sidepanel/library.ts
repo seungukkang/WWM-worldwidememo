@@ -3,7 +3,15 @@
  * edited first), a search box, label chips, built-in filter chips and the
  * label manager. See docs/design/library.md.
  */
-import { countPages, filterPages, labelsOfPage, liveAnnotations, pageMatchesFilter, type LibraryFilter } from '../core/library';
+import {
+  countPages,
+  filterPages,
+  labelsOfPage,
+  liveAnnotations,
+  pageDisplayTitle,
+  pageMatchesFilter,
+  type LibraryFilter,
+} from '../core/library';
 import type { Label, PageRecord } from '../core/types';
 import { isPdfPageKey, normalizePageKey } from '../core/url';
 import { t, uiLanguage, type MessageKey } from '../shared/i18n';
@@ -18,6 +26,8 @@ let filter: LibraryFilter = { kind: 'all' };
 let managing = false;
 /** pageKey whose label menu is open in the list. */
 let menuFor: string | null = null;
+/** pageKey whose name is being edited. */
+let renaming: string | null = null;
 let seq = 0;
 
 export function setupLibrary(): void {
@@ -136,9 +146,22 @@ function pageItem(p: PageRecord, labels: Label[]): HTMLLIElement {
   li.className = 'item';
   const head = document.createElement('div');
   head.className = 'item-head';
-  const title = document.createElement('p');
-  title.className = 'quote';
-  title.textContent = p.title || p.url;
+  const title = renaming === p.pageKey ? renameInput(p) : document.createElement('p');
+  if (renaming !== p.pageKey) {
+    title.className = 'quote';
+    title.textContent = pageDisplayTitle(p);
+    if (p.customTitle) title.title = p.title || p.url; // the page's own title
+  }
+  const rename = document.createElement('button');
+  rename.className = 'icon-btn';
+  rename.textContent = '✎';
+  rename.title = t('renamePage');
+  rename.setAttribute('aria-label', t('renamePage'));
+  rename.addEventListener('click', (e) => {
+    e.stopPropagation();
+    renaming = renaming === p.pageKey ? null : p.pageKey;
+    void renderLibrary();
+  });
   const more = document.createElement('button');
   more.className = 'icon-btn more';
   more.textContent = '⋯';
@@ -150,7 +173,7 @@ function pageItem(p: PageRecord, labels: Label[]): HTMLLIElement {
     menuFor = menuFor === p.pageKey ? null : p.pageKey;
     void renderLibrary();
   });
-  head.append(title, more);
+  head.append(title, rename, more);
   li.append(head);
 
   const tags = labelsOfPage(p, labels);
@@ -184,6 +207,39 @@ function pageItem(p: PageRecord, labels: Label[]): HTMLLIElement {
 
   li.addEventListener('click', () => void openPage(p));
   return li;
+}
+
+/** Inline name editor: Enter or leaving the field saves, Esc cancels, empty restores the page's own title. */
+function renameInput(p: PageRecord): HTMLInputElement {
+  const input = document.createElement('input');
+  input.className = 'label-input rename';
+  input.value = pageDisplayTitle(p);
+  input.maxLength = 120;
+  input.placeholder = t('renamePlaceholder');
+  input.setAttribute('aria-label', t('renamePage'));
+  let done = false;
+  const finish = (save: boolean): void => {
+    if (done) return;
+    done = true;
+    renaming = null;
+    const name = input.value.trim();
+    if (save && name !== pageDisplayTitle(p)) {
+      void sendToBackground({ type: 'wwm/page-title', pageKey: p.pageKey, title: name === (p.title || p.url) ? '' : name });
+    } else {
+      void renderLibrary();
+    }
+  };
+  input.addEventListener('click', (e) => e.stopPropagation());
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') finish(true);
+    else if (e.key === 'Escape') finish(false);
+  });
+  input.addEventListener('blur', () => finish(true));
+  requestAnimationFrame(() => {
+    input.focus();
+    input.select();
+  });
+  return input;
 }
 
 /** Switch to the page if it is already open in this window; otherwise open it in a new tab. */

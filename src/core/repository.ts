@@ -160,6 +160,20 @@ export class AnnotationRepository {
     });
   }
 
+  /** Rename a page in the library (`undefined` or blank: back to its own title). Keeps `updatedAt`. */
+  setPageTitle(pageKey: string, customTitle: string | undefined): Promise<boolean> {
+    return this.exclusive(async () => {
+      const key = PAGE_PREFIX + pageKey;
+      const page = await this.kv.get<PageRecord>(key);
+      if (!page) return false;
+      const name = customTitle?.trim();
+      if (name) page.customTitle = name;
+      else delete page.customTitle;
+      await this.kv.set({ [key]: page });
+      return true;
+    });
+  }
+
   /** Replace a page's labels. Does not touch `updatedAt` (lists sort by annotation edits). */
   setPageLabels(pageKey: string, labelIds: string[]): Promise<boolean> {
     return this.exclusive(async () => {

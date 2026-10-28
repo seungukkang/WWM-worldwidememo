@@ -89,11 +89,14 @@ chrome.runtime.onMessage.addListener((msg: BackgroundRequest, sender, sendRespon
 
 async function handle(msg: BackgroundRequest, sender: chrome.runtime.MessageSender): Promise<unknown> {
   switch (msg.type) {
-    case 'wwm/list':
+    case 'wwm/list': {
+      const page = await repo.getPage(msg.pageKey);
       return {
         annotations: await repo.list(msg.pageKey),
-        labelIds: (await repo.getPage(msg.pageKey))?.labelIds ?? [],
+        labelIds: page?.labelIds ?? [],
+        ...(page?.customTitle ? { customTitle: page.customTitle } : {}),
       };
+    }
 
     case 'wwm/list-pages':
       return { pages: await repo.listPages() };
@@ -171,6 +174,12 @@ async function handle(msg: BackgroundRequest, sender: chrome.runtime.MessageSend
       await repo.reorderLabels(msg.ids, new Date().toISOString());
       broadcast({ type: 'wwm/labels-changed' });
       return { ok: true };
+
+    case 'wwm/page-title': {
+      const ok = await repo.setPageTitle(msg.pageKey, msg.title);
+      broadcast({ type: 'wwm/changed', pageKey: msg.pageKey });
+      return { ok };
+    }
 
     case 'wwm/page-labels': {
       const ok = await repo.setPageLabels(msg.pageKey, msg.labelIds);

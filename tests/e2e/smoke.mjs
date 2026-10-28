@@ -456,6 +456,28 @@ try {
     renamed?.includes('Reading') && chipsAfterDelete === 0 && labelRestored === 1 && exported.labels?.length === 1 && meta?.schemaVersion === 2,
     `renamed=${renamed}, afterDelete=${chipsAfterDelete}, restored=${labelRestored}, schema=${meta?.schemaVersion}`,
   );
+  // A page in the All tab can be renamed (✎); the name is searchable and shown on the page tab.
+  const firstCard = barPanel.locator('#all-list .item').first();
+  await firstCard.locator('.item-head .icon-btn').first().click(); // ✎
+  await barPanel.locator('#all-list .rename').fill('My diffusion notes');
+  await barPanel.locator('#all-list .rename').press('Enter');
+  await barPanel.waitForTimeout(300);
+  const renamedTitle = await firstCard.locator('.quote').first().textContent();
+  await barPanel.fill('#library-search', 'my diffusion');
+  await barPanel.waitForTimeout(200);
+  const foundByName = await barPanel.locator('#all-list .item').count();
+  await barPanel.fill('#library-search', '');
+  await barPanel.click('[role="tab"][data-tab="page"]');
+  await barPanel.waitForTimeout(300);
+  const pageTabTitle = await barPanel.textContent('#page-title');
+  await barPanel.click('[role="tab"][data-tab="all"]');
+  await barPanel.waitForTimeout(300);
+  check(
+    'library: rename a page; the name is searchable and shown on the page tab',
+    renamedTitle === 'My diffusion notes' && foundByName === 1 && pageTabTitle === 'My diffusion notes',
+    `card=${renamedTitle}, found=${foundByName}, pageTab=${pageTabTitle}`,
+  );
+
   // Clicking a page that is already open in this window switches to its tab.
   const other = await context.newPage();
   await other.goto('about:blank');

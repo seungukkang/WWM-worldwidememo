@@ -6,6 +6,7 @@ import {
   labelsOfPage,
   moveLabel,
   nextLabelColor,
+  pageDisplayTitle,
   pageMatchesQuery,
 } from '../../src/core/library';
 import { migratePageV1toV2, migrateStorage } from '../../src/core/migrations';
@@ -86,6 +87,30 @@ describe('library filtering', () => {
   it('counts chips after the search', () => {
     expect(countPages(pages, '', labels)).toEqual({ all: 3, notes: 1, attention: 1, pdf: 1, labels: { paper: 2, work: 1, gone: 1 } });
     expect(countPages(pages, 'attention', labels).labels.paper).toBe(1);
+  });
+});
+
+describe('custom page names', () => {
+  it('shows the custom name first and searches it', () => {
+    const p = { ...pages[2]!, customTitle: '팀 공지 모음' };
+    expect(pageDisplayTitle(p)).toBe('팀 공지 모음');
+    expect(pageDisplayTitle({ ...p, customTitle: undefined })).toBe('Slack');
+    expect(pageDisplayTitle({ url: 'https://x.com/a' })).toBe('https://x.com/a');
+    expect(pageMatchesQuery(p, '공지')).toBe(true);
+    expect(pageMatchesQuery(p, 'slack')).toBe(true); // the page's own title still matches
+  });
+
+  it('survives later annotation saves and can be cleared', async () => {
+    const repo = new AnnotationRepository(new MemoryKV());
+    await repo.upsert(ann('x', { pageKey: 'p', url: 'p', title: 'Page title' }));
+    expect(await repo.setPageTitle('p', '  My name  ')).toBe(true);
+    await repo.upsert(ann('y', { pageKey: 'p', url: 'p', title: 'Page title (updated)' }));
+    const page = (await repo.getPage('p'))!;
+    expect(page.customTitle).toBe('My name');
+    expect(page.title).toBe('Page title (updated)');
+    await repo.setPageTitle('p', '');
+    expect((await repo.getPage('p'))?.customTitle).toBeUndefined();
+    expect(await repo.setPageTitle('missing', 'x')).toBe(false);
   });
 });
 
