@@ -313,10 +313,6 @@
     "message": "사이드패널에서만",
     "description": "Toolbar settings"
   },
-  "toolbarDragHint": {
-    "message": "사이트 자체 툴바와 겹치면 ⋮⋮ 손잡이로 끌어 옮기세요.",
-    "description": "Toolbar settings"
-  },
   "panelSelectFirst": {
     "message": "페이지에서 먼저 텍스트를 선택하세요.",
     "description": "Side panel style bar hint"

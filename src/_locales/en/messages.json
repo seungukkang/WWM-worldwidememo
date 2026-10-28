@@ -356,10 +356,6 @@
     "message": "Side panel only",
     "description": "Toolbar settings"
   },
-  "toolbarDragHint": {
-    "message": "If it covers the site's own toolbar, drag the page toolbar by its ⋮⋮ handle.",
-    "description": "Toolbar settings"
-  },
   "panelSelectFirst": {
     "message": "Select text on the page first.",
     "description": "Side panel style bar hint"
