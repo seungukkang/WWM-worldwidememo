@@ -223,6 +223,28 @@ try {
   await page.waitForTimeout(700);
   check('changed color persists after reload', (await layerSizes()).blue === 1);
 
+  // The popover can be dragged by its handle and stays there when the style changes.
+  await clickAnnotation();
+  const pop0 = await shadowBox(page, '[data-name="popover"]');
+  const pgrip = await shadowBox(page, '[data-name="popover"] .grip');
+  await page.mouse.move(pgrip.cx, pgrip.cy);
+  await page.mouse.down();
+  await page.mouse.move(pgrip.cx + 150, pgrip.cy + 90, { steps: 6 });
+  await page.mouse.up();
+  const pop1 = await shadowBox(page, '[data-name="popover"]');
+  await clickInShadow(page, '[data-name="popover"] .styles button', 1); // green
+  await page.waitForTimeout(300);
+  const pop2 = await shadowBox(page, '[data-name="popover"]');
+  const green = (await storedAnnotation())?.style.highlight === 'green';
+  await clickInShadow(page, '[data-name="popover"] .styles button', 2); // back to blue
+  await page.waitForTimeout(300);
+  await page.keyboard.press('Escape');
+  check(
+    'popover drags by its handle and stays put when the style changes',
+    Math.abs(pop1.x - pop0.x - 150) < 3 && Math.abs(pop1.y - pop0.y - 90) < 3 && pop2 && Math.abs(pop2.x - pop1.x) < 1 && Math.abs(pop2.y - pop1.y) < 1 && green,
+    `moved (${Math.round(pop1.x - pop0.x)}, ${Math.round(pop1.y - pop0.y)}), after style (${Math.round(pop2?.x - pop1.x)}, ${Math.round(pop2?.y - pop1.y)})`,
+  );
+
   await clickAnnotation();
   await clickInShadow(page, '[data-name="popover"] .row button', -1); // Delete
   await page.waitForTimeout(300);

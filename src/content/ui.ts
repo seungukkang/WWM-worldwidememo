@@ -4,8 +4,9 @@
  *
  * The toolbar follows the user's settings: full toolbar, a small launcher icon
  * that expands into it, or nothing (the side panel's style bar is used);
- * above or below the selection; opacity. A handle lets the user drag it out of
- * the way of the site's own toolbar; the dragged position lasts until it closes.
+ * above or below the selection; opacity. The toolbar, the note editor and the
+ * annotation popover each have a handle to drag them out of the way of the
+ * site's own UI; a dragged position lasts until the panel closes.
  */
 import { DEFAULT_SETTINGS, type Settings, type ToolbarPlacement } from '../core/settings';
 import { IGNORE_ATTR } from '../core/text-index';
@@ -63,6 +64,8 @@ button:disabled { cursor: default; opacity: .45; }
   margin-right: 2px; cursor: grab; color: rgba(255,255,255,.55); touch-action: none;
 }
 .grip:active { cursor: grabbing; }
+.row > .grip { margin-right: auto; }
+.styles > .grip { margin-right: 0; }
 .grip svg { width: 8px; height: 16px; fill: currentColor; }
 .panel[data-name="launcher"] { padding: 3px; border-radius: 999px; }
 .launch { min-width: 22px; width: 22px; height: 22px; padding: 0; border-radius: 999px; background: #ffd600; color: #1f1b2e; font-size: 11px; font-weight: 800; }
@@ -109,7 +112,7 @@ export class WwmUi {
     this.root.append(style);
 
     this.toolbar = this.panel('toolbar');
-    this.toolbar.append(this.grip());
+    this.toolbar.append(this.grip(this.toolbar));
     for (const c of COLORS) {
       const b = this.button('', t('toolbarHighlight', t(c.label)), () => this.h.onApplyStyle({ highlight: c.id }));
       const dot = document.createElement('span');
@@ -137,7 +140,7 @@ export class WwmUi {
     row.className = 'row';
     const save = this.button(t('save'), t('save'), () => this.h.onSaveNote(this.textarea.value));
     save.classList.add('primary');
-    row.append(this.button(t('cancel'), t('cancel'), () => this.hideAll()), save);
+    row.append(this.grip(this.editor), this.button(t('cancel'), t('cancel'), () => this.hideAll()), save);
     this.editor.append(this.textarea, row);
 
     this.popover = this.panel('popover');
@@ -204,10 +207,13 @@ export class WwmUi {
     this.textarea.focus();
   }
 
-  showPopover(rect: DOMRect, a: Annotation): void {
+  /** With `keepPosition`, an open popover is re-rendered where it is (it may have been dragged). */
+  showPopover(rect: DOMRect, a: Annotation, keepPosition = false): void {
     this.hideAll();
     this.popoverRect = rect;
-    this.popover.replaceChildren(this.styleRow(a));
+    const styles = this.styleRow(a);
+    styles.prepend(this.grip(this.popover));
+    this.popover.replaceChildren(styles);
     if (a.note) {
       const note = document.createElement('div');
       note.className = 'note';
@@ -231,12 +237,13 @@ export class WwmUi {
       this.button(t('delete'), t('deleteTitle'), () => this.h.onDelete(a.id)),
     );
     this.popover.append(row);
-    this.place(this.popover, rect);
+    if (keepPosition) this.popover.hidden = false;
+    else this.place(this.popover, rect);
   }
 
-  /** Re-render an open popover after its annotation changed (e.g. a style edit). */
+  /** Re-render an open popover after its annotation changed (e.g. a style edit), in place. */
   refreshPopover(a: Annotation): void {
-    if (!this.popover.hidden && this.popoverRect) this.showPopover(this.popoverRect, a);
+    if (!this.popover.hidden && this.popoverRect) this.showPopover(this.popoverRect, a, true);
   }
 
   /** Brief message at the bottom of the viewport, with an optional action (e.g. Undo). */
@@ -354,8 +361,8 @@ export class WwmUi {
     }
   }
 
-  /** Drag handle, to move the toolbar off the site's own toolbar. */
-  private grip(): HTMLSpanElement {
+  /** Drag handle that moves `panel`, e.g. off the site's own toolbar. */
+  private grip(panel: HTMLElement): HTMLSpanElement {
     const grip = document.createElement('span');
     grip.className = 'grip';
     grip.title = t('dragHandle');
@@ -368,16 +375,16 @@ export class WwmUi {
       e.preventDefault();
       // Capture keeps the release on the handle, so the page never sees it as a new selection.
       grip.setPointerCapture(e.pointerId);
-      const r = this.toolbar.getBoundingClientRect();
+      const r = panel.getBoundingClientRect();
       offset = { x: e.clientX - r.left, y: e.clientY - r.top };
     });
     grip.addEventListener('pointermove', (e) => {
       if (!offset) return;
-      const { width, height } = this.toolbar.getBoundingClientRect();
+      const { width, height } = panel.getBoundingClientRect();
       const left = Math.max(0, Math.min(e.clientX - offset.x, window.innerWidth - width));
       const top = Math.max(0, Math.min(e.clientY - offset.y, window.innerHeight - height));
-      this.toolbar.style.left = `${Math.round(left)}px`;
-      this.toolbar.style.top = `${Math.round(top)}px`;
+      panel.style.left = `${Math.round(left)}px`;
+      panel.style.top = `${Math.round(top)}px`;
     });
     const end = (): void => {
       offset = null;
