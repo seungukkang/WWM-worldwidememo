@@ -11,6 +11,8 @@
  *      layer that can be annotated; annotations persist and the PDF auto-opens next time.
  *   6b. editing: the popover changes an annotation's style; delete can be undone;
  *       the side panel's undo/redo restores an overwritten note.
+ *   6c. toolbar: above/below, compact icon, drag by the handle (reset after
+ *       closing), Esc, opacity; "side panel only" mode and the panel's style bar.
  *   7. PDF viewer basics: zoom keeps annotations, links (internal + Back, web, mailto),
  *      page number, outline, download, print.
  *
@@ -64,7 +66,7 @@ const url = `${origin}/article`;
  * Click a button inside WWM's closed shadow root. Page scripts cannot reach it,
  * so locate it through the DevTools protocol (pierce) and click with the mouse.
  */
-async function clickInShadow(page, selector, index = 0) {
+async function shadowBox(page, selector, index = 0) {
   const cdp = await page.context().newCDPSession(page);
   try {
     const { root } = await cdp.send('DOM.getDocument', { depth: -1, pierce: true });
@@ -75,12 +77,21 @@ async function clickInShadow(page, selector, index = 0) {
     const { nodeIds } = await cdp.send('DOM.querySelectorAll', { nodeId: shadow.nodeId, selector });
     const nodeId = index < 0 ? nodeIds.at(index) : nodeIds[index];
     if (!nodeId) throw new Error(`no element for ${selector} [${index}]`);
-    const { model } = await cdp.send('DOM.getBoxModel', { nodeId });
-    const [x1, y1, , , x3, y3] = model.content;
-    await page.mouse.click((x1 + x3) / 2, (y1 + y3) / 2);
+    // Hidden elements (display: none) have no box model.
+    const box = await cdp.send('DOM.getBoxModel', { nodeId }).catch(() => null);
+    if (!box) return null;
+    const [x1, y1, , , x3, y3] = box.model.border;
+    const { attributes } = await cdp.send('DOM.getAttributes', { nodeId });
+    return { x: x1, y: y1, width: x3 - x1, height: y3 - y1, cx: (x1 + x3) / 2, cy: (y1 + y3) / 2, attributes };
   } finally {
     await cdp.detach();
   }
+}
+
+async function clickInShadow(page, selector, index = 0) {
+  const box = await shadowBox(page, selector, index);
+  if (!box) throw new Error(`${selector} [${index}] is not visible`);
+  await page.mouse.click(box.cx, box.cy);
 }
 
 const results = [];
@@ -257,7 +268,105 @@ try {
     noteBefore === 'rewritten' && undone && noteUndone === 'first thought' && redone && (await storedAnnotation())?.note === 'rewritten',
     `${noteBefore} → ${noteUndone} → ${(await storedAnnotation())?.note}`,
   );
+
+  // ---- toolbar settings (written through the side panel's message) ---------
+  const setSettings = (patch) => panel.evaluate((p) => chrome.runtime.sendMessage({ type: 'wwm/settings-set', patch: p }), patch);
+  const selectText = async (snippet) => {
+    await page.bringToFront();
+    await page.keyboard.press('Escape');
+    const rect = await page.evaluate((q) => {
+      const p = [...document.querySelectorAll('p')].find((el) => el.textContent.includes(q));
+      const t = [...p.childNodes].find((n) => n.nodeType === 3 && n.data.includes(q));
+      const r = document.createRange();
+      r.setStart(t, t.data.indexOf(q));
+      r.setEnd(t, t.data.indexOf(q) + q.length);
+      getSelection().removeAllRanges();
+      getSelection().addRange(r);
+      document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+      const b = r.getBoundingClientRect();
+      return { top: b.top, bottom: b.bottom };
+    }, snippet);
+    await page.waitForTimeout(200);
+    return rect;
+  };
+  const snippet = 'The reverse process';
+  const toolbar = () => shadowBox(page, '[data-name="toolbar"]');
+
+  let sel = await selectText(snippet);
+  let tb = await toolbar();
+  const aboveOk = tb && tb.y + tb.height <= sel.top;
+  await setSettings({ toolbarPlacement: 'below' });
+  sel = await selectText(snippet);
+  tb = await toolbar();
+  check('toolbar above (default) / below the selection', aboveOk && tb && tb.y >= sel.bottom, `below top=${tb?.y}, sel bottom=${sel.bottom}`);
+  const defaultPos = tb;
+
+  await setSettings({ toolbarMode: 'compact' });
+  await selectText(snippet);
+  const launcher = await shadowBox(page, '[data-name="launcher"]');
+  const hiddenBefore = (await toolbar()) === null;
+  if (launcher) await page.mouse.move(launcher.cx, launcher.cy);
+  await page.waitForTimeout(150);
+  check('compact mode: small icon expands into the toolbar', Boolean(launcher) && hiddenBefore && (await toolbar()) !== null);
+
+  await setSettings({ toolbarMode: 'full', toolbarOpacity: 0.6 });
+  await selectText(snippet);
+  const grip = await shadowBox(page, '[data-name="toolbar"] .grip');
+  if (grip) {
+    await page.mouse.move(grip.cx, grip.cy);
+    await page.mouse.down();
+    await page.mouse.move(grip.cx + 200, grip.cy + 120, { steps: 8 });
+    await page.mouse.up();
+  }
+  const moved = await toolbar();
+  const selectionKept = await page.evaluate(() => getSelection().toString());
+  await page.keyboard.press('Escape');
+  const closed = (await toolbar()) === null;
+  check(
+    'toolbar drags by its handle; Esc closes it',
+    Boolean(grip) && moved && Math.abs(moved.x - defaultPos.x - 200) < 3 && Math.abs(moved.y - defaultPos.y - 120) < 3 && selectionKept === snippet && closed,
+    `moved by (${moved && Math.round(moved.x - defaultPos.x)}, ${moved && Math.round(moved.y - defaultPos.y)}), closed=${closed}`,
+  );
+  await selectText(snippet);
+  tb = await toolbar();
+  check(
+    'toolbar reopens at its default place after a drag',
+    tb && Math.abs(tb.x - defaultPos.x) < 3 && Math.abs(tb.y - defaultPos.y) < 3 && tb.attributes.join(' ').includes('--wwm-opacity: 0.6'),
+    `at (${tb?.x}, ${tb?.y}) vs (${defaultPos.x}, ${defaultPos.y})`,
+  );
+
+  await setSettings({ toolbarMode: 'panel' });
+  await selectText(snippet);
+  check(
+    '"side panel only": nothing appears on the page',
+    (await toolbar()) === null && (await shadowBox(page, '[data-name="launcher"]')) === null,
+  );
   await panel.close();
+
+  // The side panel's style bar acts on the page's selection.
+  const articleTabId = await sw.evaluate(async (o) => (await chrome.tabs.query({ url: `${o}/*` }))[0].id, origin);
+  const barPanel = await context.newPage();
+  await barPanel.addInitScript((id) => {
+    chrome.tabs.query = async () => [await chrome.tabs.get(id)];
+  }, articleTabId);
+  await barPanel.goto(`chrome-extension://${extId}/sidepanel/index.html`);
+  await barPanel.waitForSelector('#stylebar button');
+  const live = async () => (await sw.evaluate(() => chrome.storage.local.get(null)))[`wwm:page:${url}`].annotations.filter((a) => !a.deletedAt);
+  const countBefore = (await live()).length;
+  await page.evaluate(() => getSelection().removeAllRanges());
+  await barPanel.locator('#stylebar button').nth(1).click(); // green, nothing selected
+  const hintShown = await barPanel.locator('#stylebar .hint').isVisible();
+  await selectText(snippet);
+  await barPanel.locator('#stylebar button').nth(1).click(); // green
+  await page.waitForTimeout(400);
+  const created = (await live()).find((a) => a.style.highlight === 'green');
+  check(
+    'side panel style bar highlights the page selection (hint without one)',
+    hintShown && (await live()).length === countBefore + 1 && created?.target.selectors[0].exact === snippet,
+    `hint=${hintShown}, created=${created?.target.selectors[0].exact}`,
+  );
+  await barPanel.close();
+  await sw.evaluate((key) => chrome.storage.sync.remove(key), 'wwm:settings');
 
   // ---- PDF -----------------------------------------------------------------
   const pdfUrl = `${origin}/paper.pdf`;

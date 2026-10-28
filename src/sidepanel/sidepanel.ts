@@ -3,17 +3,25 @@
  * JSON export. Reads via background messages; never writes storage directly.
  */
 import type { HistoryAction } from '../core/history';
-import { getSelector, type Annotation, type PageRecord } from '../core/types';
+import type { Settings, ToolbarMode, ToolbarPlacement } from '../core/settings';
+import { getSelector, type Annotation, type HighlightColor, type PageRecord } from '../core/types';
 import { isPdfPageKey, normalizePageKey } from '../core/url';
 import { localizeDocument, t, uiLanguage, type MessageKey } from '../shared/i18n';
 import { sendToBackground, type Broadcast, type ContentRequest, type ContentStatus } from '../shared/messages';
 import { pdfViewerUrl } from '../shared/pdf';
+import { loadSettings, onSettingsChanged } from '../shared/settings';
 
 const SWATCH: Record<string, string> = {
   yellow: '#ffd600',
   green: '#30c478',
   blue: '#409cff',
   pink: '#ff5caa',
+};
+const COLOR_LABEL: Record<HighlightColor, MessageKey> = {
+  yellow: 'colorYellow',
+  green: 'colorGreen',
+  blue: 'colorBlue',
+  pink: 'colorPink',
 };
 const STATUS_LABEL: Record<string, MessageKey> = {
   moved: 'badgeMoved',
@@ -213,6 +221,95 @@ async function tabPageKey(): Promise<string | undefined> {
   }
 }
 
+/**
+ * Style bar: annotate the text selected on the page (the page keeps its
+ * selection while the side panel is clicked). Works in every toolbar mode and
+ * is the main tool in "side panel only" mode.
+ */
+function setupStyleBar(): void {
+  const bar = $('stylebar');
+  const hint = document.createElement('span');
+  hint.className = 'hint';
+  hint.hidden = true;
+  let hintTimer: ReturnType<typeof setTimeout> | undefined;
+  const run = async (msg: ContentRequest): Promise<void> => {
+    if ((await sendToTabForResult(msg))?.ok) return;
+    hint.textContent = t('panelSelectFirst');
+    hint.hidden = false;
+    clearTimeout(hintTimer);
+    hintTimer = setTimeout(() => (hint.hidden = true), 3000);
+  };
+  const button = (label: string, title: string, msg: ContentRequest): HTMLButtonElement => {
+    const b = document.createElement('button');
+    b.textContent = label;
+    b.title = title;
+    b.setAttribute('aria-label', title);
+    b.addEventListener('click', () => void run(msg));
+    return b;
+  };
+  const sep = (): HTMLSpanElement => Object.assign(document.createElement('span'), { className: 'sep' });
+
+  for (const [color, label] of Object.entries(COLOR_LABEL)) {
+    const b = button('', t('toolbarHighlight', t(label)), { type: 'wwm/apply-style', style: { highlight: color as HighlightColor } });
+    const dot = document.createElement('span');
+    dot.className = 'dot';
+    dot.style.background = SWATCH[color] ?? '';
+    b.append(dot);
+    bar.append(b);
+  }
+  const u = button('U', t('toolbarUnderline'), { type: 'wwm/apply-style', style: { underline: true } });
+  u.classList.add('u');
+  bar.append(
+    sep(),
+    u,
+    button('B', t('toolbarBold'), { type: 'wwm/apply-style', style: { bold: true } }),
+    sep(),
+    button(t('toolbarNote'), t('toolbarNoteTitle'), { type: 'wwm/command', command: 'note' }),
+    hint,
+  );
+}
+
+/** Toolbar settings, shown under the header when the ⚙ button is pressed. */
+function setupSettings(): void {
+  const panel = $('settings');
+  const toggle = $<HTMLButtonElement>('settings-toggle');
+  toggle.addEventListener('click', () => {
+    panel.hidden = !panel.hidden;
+    toggle.setAttribute('aria-expanded', String(!panel.hidden));
+  });
+
+  const mode = $<HTMLSelectElement>('set-mode');
+  const placement = $<HTMLSelectElement>('set-placement');
+  const opacity = $<HTMLInputElement>('set-opacity');
+  const opacityValue = $<HTMLOutputElement>('set-opacity-value');
+  const show = (s: Settings): void => {
+    mode.value = s.toolbarMode;
+    placement.value = s.toolbarPlacement;
+    opacity.value = String(Math.round(s.toolbarOpacity * 100));
+    opacityValue.value = `${opacity.value}%`;
+    // Position and opacity only matter when something is shown on the page.
+    for (const el of [placement, opacity]) el.disabled = s.toolbarMode === 'panel';
+  };
+  const save = (patch: Partial<Settings>): void => void sendToBackground({ type: 'wwm/settings-set', patch });
+
+  mode.addEventListener('change', () => save({ toolbarMode: mode.value as ToolbarMode }));
+  placement.addEventListener('change', () => save({ toolbarPlacement: placement.value as ToolbarPlacement }));
+  opacity.addEventListener('input', () => (opacityValue.value = `${opacity.value}%`));
+  opacity.addEventListener('change', () => save({ toolbarOpacity: Number(opacity.value) / 100 }));
+
+  void loadSettings().then(show);
+  onSettingsChanged(show);
+}
+
+async function sendToTabForResult(msg: ContentRequest): Promise<{ ok?: boolean } | undefined> {
+  if (activeTabId === undefined) return undefined;
+  try {
+    return (await chrome.tabs.sendMessage(activeTabId, msg)) as { ok?: boolean } | undefined;
+  } catch {
+    return undefined; // No content script on this tab.
+  }
+}
+
 async function exportJson(): Promise<void> {
   const { pages } = await sendToBackground({ type: 'wwm/export' });
   const blob = new Blob([JSON.stringify({ format: 'wwm-export', version: 1, pages }, null, 2)], {
@@ -243,6 +340,8 @@ document.documentElement.lang = uiLanguage();
 localizeDocument();
 setupTabs();
 $('export').addEventListener('click', () => void exportJson());
+setupStyleBar();
+setupSettings();
 $('undo').addEventListener('click', () => void stepHistory('wwm/undo'));
 $('redo').addEventListener('click', () => void stepHistory('wwm/redo'));
 // Only while the side panel has focus: on the page, ⌘Z belongs to the site's own editing.

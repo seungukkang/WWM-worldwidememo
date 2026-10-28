@@ -307,5 +307,61 @@
         "content": "$1"
       }
     }
+  },
+  "launcherTitle": {
+    "message": "WWM — highlight or add a note",
+    "description": "Toolbar settings"
+  },
+  "dragHandle": {
+    "message": "Drag to move",
+    "description": "Toolbar settings"
+  },
+  "settingsTitle": {
+    "message": "Settings",
+    "description": "Toolbar settings"
+  },
+  "settingsToolbar": {
+    "message": "Toolbar",
+    "description": "Toolbar settings"
+  },
+  "toolbarModeLabel": {
+    "message": "When text is selected",
+    "description": "Toolbar settings"
+  },
+  "toolbarModeFull": {
+    "message": "Floating toolbar on the page",
+    "description": "Toolbar settings"
+  },
+  "toolbarModeCompact": {
+    "message": "Small icon on the page",
+    "description": "Toolbar settings"
+  },
+  "toolbarPlacementLabel": {
+    "message": "Position",
+    "description": "Toolbar settings"
+  },
+  "placementAbove": {
+    "message": "Above the selection",
+    "description": "Toolbar settings"
+  },
+  "placementBelow": {
+    "message": "Below the selection",
+    "description": "Toolbar settings"
+  },
+  "toolbarOpacityLabel": {
+    "message": "Opacity",
+    "description": "Toolbar settings"
+  },
+  "toolbarModePanel": {
+    "message": "Side panel only",
+    "description": "Toolbar settings"
+  },
+  "toolbarDragHint": {
+    "message": "If it covers the site's own toolbar, drag the page toolbar by its ⋮⋮ handle.",
+    "description": "Toolbar settings"
+  },
+  "panelSelectFirst": {
+    "message": "Select text on the page first.",
+    "description": "Side panel style bar hint"
   }
 }

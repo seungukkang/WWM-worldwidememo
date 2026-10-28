@@ -8,10 +8,12 @@ import { createAnnotation } from '../core/factory';
 import { describeRange } from '../core/selectors';
 import { buildTextIndex, offsetsToRange, type TextIndex } from '../core/text-index';
 import type { HistoryAction } from '../core/history';
+import { DEFAULT_SETTINGS, type Settings } from '../core/settings';
 import { hasVisibleStyle, toggleStyle, type StyleChange } from '../core/style';
 import type { AnchorState, Annotation, AnnotationStyle } from '../core/types';
 import { t } from '../shared/i18n';
 import { sendToBackground, type ContentRequest, type ContentStatus } from '../shared/messages';
+import { loadSettings, onSettingsChanged } from '../shared/settings';
 import { HighlightRenderer, isSupported, type RenderEntry } from './renderer';
 import { WwmUi, type UiHandlers } from './ui';
 
@@ -33,6 +35,7 @@ let lastReportSignature = '';
 let pendingRange: Range | null = null;
 let editingId: string | null = null;
 let cachedIndex: TextIndex | null = null;
+let settings: Settings = DEFAULT_SETTINGS;
 
 // Created in startAnnotator() so importing this module has no side effects.
 let renderer: HighlightRenderer;
@@ -231,7 +234,14 @@ function onSelectionEnd(): void {
     const range = currentSelectionRange();
     if (!range) return;
     pendingRange = range;
-    ui.showToolbar(range.getBoundingClientRect());
+    const rect = range.getBoundingClientRect();
+    if (settings.toolbarMode === 'full') ui.showToolbar(rect);
+    else if (settings.toolbarMode === 'compact') {
+      const lines = range.getClientRects();
+      ui.showLauncher(rect, lines[lines.length - 1] ?? rect);
+    }
+    // 'panel': nothing on the page; the side panel's style bar, shortcuts and
+    // the context menu act on the selection.
   }, 0);
 }
 
@@ -261,6 +271,11 @@ function onKeyUp(e: KeyboardEvent): void {
   if (e.shiftKey && !ui.contains(e.target)) onSelectionEnd();
 }
 
+/** Esc closes WWM's own toolbar/popover only; the page still receives the key. */
+function onKeyDown(e: KeyboardEvent): void {
+  if (e.key === 'Escape' && ui.isOpen()) ui.hideAll();
+}
+
 function onMouseDown(e: MouseEvent): void {
   if (!ui.contains(e.target) && ui.isOpen()) ui.hideAll();
 }
@@ -272,7 +287,7 @@ function onClick(e: MouseEvent): void {
   if (a) ui.showPopover(new DOMRect(e.clientX, e.clientY, 0, 0), a);
 }
 
-const CONTENT_REQUESTS = new Set<string>(['wwm/scroll-to', 'wwm/refresh', 'wwm/command', 'wwm/get-status']);
+const CONTENT_REQUESTS = new Set<string>(['wwm/scroll-to', 'wwm/refresh', 'wwm/command', 'wwm/apply-style', 'wwm/get-status']);
 
 function onMessage(msg: ContentRequest, _sender: chrome.runtime.MessageSender, sendResponse: (r: unknown) => void): void {
   // Extension pages (the PDF viewer) also receive runtime messages meant for the
@@ -290,11 +305,24 @@ function onMessage(msg: ContentRequest, _sender: chrome.runtime.MessageSender, s
       return;
     case 'wwm/command': {
       const range = currentSelectionRange();
-      if (!range) return;
+      if (!range) {
+        sendResponse({ ok: false });
+        return;
+      }
       pendingRange = range;
       if (msg.command === 'note') ui.showEditor(range.getBoundingClientRect());
       else if (msg.command === 'underline') void createFromPending({ underline: true });
       else void createFromPending({ highlight: 'yellow' });
+      break;
+    }
+    case 'wwm/apply-style': {
+      const range = currentSelectionRange();
+      if (!range) {
+        sendResponse({ ok: false });
+        return;
+      }
+      pendingRange = range;
+      void createFromPending(msg.style);
       break;
     }
   }
@@ -305,11 +333,18 @@ export function startAnnotator(h: AnnotatorHost): void {
   host = h;
   renderer = new HighlightRenderer();
   ui = new WwmUi(uiHandlers);
+  const apply = (s: Settings): void => {
+    settings = s;
+    ui.applySettings(s);
+  };
+  void loadSettings().then(apply, () => undefined);
+  onSettingsChanged(apply);
   if (!isSupported()) {
     console.warn('[WWM] CSS Custom Highlight API not available; rendering disabled.');
   }
   document.addEventListener('mouseup', onMouseUp);
   document.addEventListener('keyup', onKeyUp);
+  document.addEventListener('keydown', onKeyDown);
   document.addEventListener('mousedown', onMouseDown);
   document.addEventListener('click', onClick);
   chrome.runtime.onMessage.addListener(onMessage);

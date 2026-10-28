@@ -264,5 +264,61 @@
         "content": "$1"
       }
     }
+  },
+  "launcherTitle": {
+    "message": "WWM — 하이라이트·메모",
+    "description": "Toolbar settings"
+  },
+  "dragHandle": {
+    "message": "끌어서 이동",
+    "description": "Toolbar settings"
+  },
+  "settingsTitle": {
+    "message": "설정",
+    "description": "Toolbar settings"
+  },
+  "settingsToolbar": {
+    "message": "툴바",
+    "description": "Toolbar settings"
+  },
+  "toolbarModeLabel": {
+    "message": "텍스트를 선택하면",
+    "description": "Toolbar settings"
+  },
+  "toolbarModeFull": {
+    "message": "페이지에 툴바 띄우기",
+    "description": "Toolbar settings"
+  },
+  "toolbarModeCompact": {
+    "message": "페이지에 작은 아이콘",
+    "description": "Toolbar settings"
+  },
+  "toolbarPlacementLabel": {
+    "message": "위치",
+    "description": "Toolbar settings"
+  },
+  "placementAbove": {
+    "message": "선택 영역 위",
+    "description": "Toolbar settings"
+  },
+  "placementBelow": {
+    "message": "선택 영역 아래",
+    "description": "Toolbar settings"
+  },
+  "toolbarOpacityLabel": {
+    "message": "투명도",
+    "description": "Toolbar settings"
+  },
+  "toolbarModePanel": {
+    "message": "사이드패널에서만",
+    "description": "Toolbar settings"
+  },
+  "toolbarDragHint": {
+    "message": "사이트 자체 툴바와 겹치면 ⋮⋮ 손잡이로 끌어 옮기세요.",
+    "description": "Toolbar settings"
+  },
+  "panelSelectFirst": {
+    "message": "페이지에서 먼저 텍스트를 선택하세요.",
+    "description": "Side panel style bar hint"
   }
 }

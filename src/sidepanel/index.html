@@ -17,12 +17,44 @@
         <button id="redo" class="icon" disabled>
           <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M12 5l4 4-4 4M16 9H8a4 4 0 0 0 0 8h2" /></svg>
         </button>
+        <button id="settings-toggle" class="icon" aria-expanded="false" aria-controls="settings" data-i18n-title="settingsTitle">
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <circle cx="10" cy="10" r="2.6" />
+            <path d="M10 2.5v2.2M10 15.3v2.2M2.5 10h2.2M15.3 10h2.2M4.7 4.7l1.6 1.6M13.7 13.7l1.6 1.6M4.7 15.3l1.6-1.6M13.7 6.3l1.6-1.6" />
+          </svg>
+        </button>
       </div>
       <nav class="tabs" role="tablist">
         <button role="tab" data-tab="page" aria-selected="true" data-i18n="tabThisPage">This page</button>
         <button role="tab" data-tab="all" aria-selected="false" data-i18n="tabAll">All</button>
       </nav>
     </header>
+
+    <section id="stylebar" class="stylebar" aria-live="polite"></section>
+
+    <section id="settings" class="settings" hidden>
+      <h2 data-i18n="settingsToolbar">Toolbar</h2>
+      <label class="field">
+        <span data-i18n="toolbarModeLabel">When text is selected</span>
+        <select id="set-mode">
+          <option value="full" data-i18n="toolbarModeFull">Floating toolbar on the page</option>
+          <option value="compact" data-i18n="toolbarModeCompact">Small icon on the page</option>
+          <option value="panel" data-i18n="toolbarModePanel">Side panel only</option>
+        </select>
+        <small data-i18n="toolbarDragHint">Drag the page toolbar by its ⋮⋮ handle if it covers the site's own toolbar.</small>
+      </label>
+      <label class="field">
+        <span data-i18n="toolbarPlacementLabel">Position</span>
+        <select id="set-placement">
+          <option value="above" data-i18n="placementAbove">Above the selection</option>
+          <option value="below" data-i18n="placementBelow">Below the selection</option>
+        </select>
+      </label>
+      <label class="field">
+        <span><span data-i18n="toolbarOpacityLabel">Opacity</span> <output id="set-opacity-value"></output></span>
+        <input id="set-opacity" type="range" min="50" max="100" step="10" />
+      </label>
+    </section>
 
     <section id="banner" class="banner" hidden></section>
 

@@ -1,7 +1,13 @@
 /**
  * In-page UI (floating toolbar, note editor, annotation popover) rendered in a
  * closed Shadow DOM so page CSS cannot leak in and ours cannot leak out.
+ *
+ * The toolbar follows the user's settings: full toolbar, a small launcher icon
+ * that expands into it, or nothing (the side panel's style bar is used);
+ * above or below the selection; opacity. A handle lets the user drag it out of
+ * the way of the site's own toolbar; the dragged position lasts until it closes.
  */
+import { DEFAULT_SETTINGS, type Settings, type ToolbarPlacement } from '../core/settings';
 import { IGNORE_ATTR } from '../core/text-index';
 import { toggleStyle, type StyleChange } from '../core/style';
 import type { Annotation, AnnotationStyle, HighlightColor } from '../core/types';
@@ -49,6 +55,18 @@ textarea {
 .styles { display: flex; align-items: center; gap: 4px; }
 button.on { background: rgba(255,255,255,.18); box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.85); }
 button:disabled { cursor: default; opacity: .45; }
+.panel[data-name="toolbar"], .panel[data-name="launcher"] { opacity: var(--wwm-opacity, 1); transition: opacity .12s; }
+.panel[data-name="toolbar"]:hover, .panel[data-name="toolbar"]:focus-within,
+.panel[data-name="launcher"]:hover { opacity: 1; }
+.grip {
+  display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 28px;
+  margin-right: 2px; cursor: grab; color: rgba(255,255,255,.55); touch-action: none;
+}
+.grip:active { cursor: grabbing; }
+.grip svg { width: 8px; height: 16px; fill: currentColor; }
+.panel[data-name="launcher"] { padding: 3px; border-radius: 999px; }
+.launch { min-width: 22px; width: 22px; height: 22px; padding: 0; border-radius: 999px; background: #ffd600; color: #1f1b2e; font-size: 11px; font-weight: 800; }
+.launch:hover { background: #ffe14d; }
 .toast {
   top: auto; left: 50%; bottom: 24px; transform: translateX(-50%);
   padding: 6px 6px 6px 14px; gap: 10px;
@@ -73,6 +91,9 @@ export class WwmUi {
   private readonly textarea: HTMLTextAreaElement;
   private readonly popover: HTMLDivElement;
   private readonly toast: HTMLDivElement;
+  private readonly launcher: HTMLDivElement;
+  private settings: Settings = DEFAULT_SETTINGS;
+  private selectionRect: DOMRect | null = null;
   private popoverRect: DOMRect | null = null;
   private toastTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -86,6 +107,7 @@ export class WwmUi {
     this.root.append(style);
 
     this.toolbar = this.panel('toolbar');
+    this.toolbar.append(this.grip());
     for (const c of COLORS) {
       const b = this.button('', t('toolbarHighlight', t(c.label)), () => this.h.onApplyStyle({ highlight: c.id }));
       const dot = document.createElement('span');
@@ -122,6 +144,13 @@ export class WwmUi {
     this.toast = this.panel('toast');
     this.toast.classList.add('toast');
 
+    // Compact mode: a small icon at the end of the selection that opens the toolbar.
+    this.launcher = this.panel('launcher');
+    const launch = this.button('W', t('launcherTitle'), () => this.expandLauncher());
+    launch.classList.add('launch');
+    launch.addEventListener('pointerenter', () => this.expandLauncher());
+    this.launcher.append(launch);
+
     // Keep the page selection alive while clicking our buttons.
     this.root.addEventListener('mousedown', (e) => {
       if (!(e.target instanceof HTMLTextAreaElement)) e.preventDefault();
@@ -134,9 +163,36 @@ export class WwmUi {
     return target === this.host;
   }
 
+  applySettings(s: Settings): void {
+    this.settings = s;
+    for (const el of [this.toolbar, this.launcher]) el.style.setProperty('--wwm-opacity', String(s.toolbarOpacity));
+  }
+
+  /** Always opens at its default place next to the selection (a dragged position is not kept). */
   showToolbar(rect: DOMRect): void {
     this.hideAll();
-    this.place(this.toolbar, rect);
+    this.selectionRect = rect;
+    this.place(this.toolbar, rect, this.settings.toolbarPlacement);
+  }
+
+  /** Compact mode: `last` is the selection's last line box; the icon sits at its end. */
+  showLauncher(rect: DOMRect, last: DOMRect): void {
+    this.hideAll();
+    this.selectionRect = rect;
+    const el = this.launcher;
+    el.hidden = false;
+    const { width, height } = el.getBoundingClientRect();
+    const margin = 4;
+    const below = this.settings.toolbarPlacement === 'below';
+    let top = below ? last.bottom + margin : last.top - height - margin;
+    if (top < margin || top + height > window.innerHeight - margin) top = below ? last.top - height - margin : last.bottom + margin;
+    const left = Math.max(margin, Math.min(last.right + margin, window.innerWidth - width - margin));
+    el.style.top = `${Math.round(top)}px`;
+    el.style.left = `${Math.round(left)}px`;
+  }
+
+  private expandLauncher(): void {
+    if (!this.launcher.hidden && this.selectionRect) this.showToolbar(this.selectionRect);
   }
 
   showEditor(rect: DOMRect, initial = ''): void {
@@ -206,12 +262,13 @@ export class WwmUi {
 
   hideAll(): void {
     this.toolbar.hidden = true;
+    this.launcher.hidden = true;
     this.editor.hidden = true;
     this.popover.hidden = true;
   }
 
   isOpen(): boolean {
-    return !this.toolbar.hidden || !this.editor.hidden || !this.popover.hidden;
+    return !this.toolbar.hidden || !this.launcher.hidden || !this.editor.hidden || !this.popover.hidden;
   }
 
   // -- helpers --------------------------------------------------------------
@@ -285,12 +342,51 @@ export class WwmUi {
     }
   }
 
-  private place(el: HTMLElement, rect: DOMRect): void {
+  /** Drag handle, to move the toolbar off the site's own toolbar. */
+  private grip(): HTMLSpanElement {
+    const grip = document.createElement('span');
+    grip.className = 'grip';
+    grip.title = t('dragHandle');
+    grip.setAttribute('aria-label', t('dragHandle'));
+    grip.innerHTML =
+      '<svg viewBox="0 0 8 16" aria-hidden="true"><circle cx="2" cy="3" r="1.3"/><circle cx="6" cy="3" r="1.3"/>' +
+      '<circle cx="2" cy="8" r="1.3"/><circle cx="6" cy="8" r="1.3"/><circle cx="2" cy="13" r="1.3"/><circle cx="6" cy="13" r="1.3"/></svg>';
+    let offset: { x: number; y: number } | null = null;
+    grip.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      // Capture keeps the release on the handle, so the page never sees it as a new selection.
+      grip.setPointerCapture(e.pointerId);
+      const r = this.toolbar.getBoundingClientRect();
+      offset = { x: e.clientX - r.left, y: e.clientY - r.top };
+    });
+    grip.addEventListener('pointermove', (e) => {
+      if (!offset) return;
+      const { width, height } = this.toolbar.getBoundingClientRect();
+      const left = Math.max(0, Math.min(e.clientX - offset.x, window.innerWidth - width));
+      const top = Math.max(0, Math.min(e.clientY - offset.y, window.innerHeight - height));
+      this.toolbar.style.left = `${Math.round(left)}px`;
+      this.toolbar.style.top = `${Math.round(top)}px`;
+    });
+    const end = (): void => {
+      offset = null;
+    };
+    grip.addEventListener('pointerup', end);
+    grip.addEventListener('pointercancel', end);
+    return grip;
+  }
+
+  private place(el: HTMLElement, rect: DOMRect, placement: ToolbarPlacement = 'above'): void {
     el.hidden = false;
     const { width, height } = el.getBoundingClientRect();
     const margin = 8;
-    let top = rect.top - height - margin;
-    if (top < margin) top = rect.bottom + margin;
+    let top: number;
+    if (placement === 'below') {
+      top = rect.bottom + margin;
+      if (top + height > window.innerHeight - margin) top = rect.top - height - margin;
+    } else {
+      top = rect.top - height - margin;
+      if (top < margin) top = rect.bottom + margin;
+    }
     const maxLeft = window.innerWidth - width - margin;
     const left = Math.max(margin, Math.min(rect.left + rect.width / 2 - width / 2, maxLeft));
     el.style.top = `${Math.round(top)}px`;

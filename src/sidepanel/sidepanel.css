@@ -34,7 +34,8 @@ body {
   padding: 10px 12px; border-bottom: 1px solid var(--line);
   position: sticky; top: 0; background: var(--paper);
 }
-.top h1 { font-size: 14px; margin: 0; flex: 1; }
+.top h1 { font-size: 14px; margin: 0; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tabs button { white-space: nowrap; }
 .tabs { display: flex; gap: 2px; }
 .history { display: flex; gap: 2px; }
 .icon {
@@ -43,6 +44,34 @@ body {
 }
 .icon:hover:not(:disabled) { border-color: var(--line); }
 .icon:disabled { opacity: .35; cursor: default; }
+.icon[aria-expanded="true"] { border-color: var(--line); background: color-mix(in srgb, var(--ink) 8%, transparent); }
+.stylebar {
+  display: flex; align-items: center; gap: 2px; flex-wrap: wrap;
+  margin: 8px 12px 0; padding: 4px 6px; border: 1px solid var(--line); border-radius: 8px; background: var(--card);
+}
+.stylebar button {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 28px; height: 28px; padding: 0 6px;
+  border: none; border-radius: 6px; background: none; color: inherit; font: inherit; font-weight: 600; cursor: pointer;
+}
+.stylebar button:hover { background: color-mix(in srgb, var(--ink) 8%, transparent); }
+.stylebar .dot { width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid color-mix(in srgb, var(--ink) 25%, transparent); }
+.stylebar .u { text-decoration: underline; text-underline-offset: 3px; }
+.stylebar .sep { width: 1px; height: 18px; margin: 0 3px; background: var(--line); }
+.stylebar .hint { flex-basis: 100%; padding: 2px 4px 2px; color: var(--warn); font-size: 12px; }
+.stylebar .hint[hidden] { display: none; }
+.settings {
+  margin: 8px 12px 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--card); display: flex; flex-direction: column; gap: 10px;
+}
+.settings[hidden] { display: none; }
+.settings h2 { margin: 0; font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field select, .field input[type="range"] { font: inherit; color: inherit; }
+.field select { padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); }
+.field.check { flex-direction: row; align-items: flex-start; gap: 8px; }
+.field.check input { margin: 3px 0 0; }
+.field small { display: block; color: var(--muted); font-size: 11px; }
+.field output { color: var(--muted); font-variant-numeric: tabular-nums; }
 .icon svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .tabs button, .bottom button, .item button {
   font: inherit; color: inherit; background: none; border: 1px solid var(--line);

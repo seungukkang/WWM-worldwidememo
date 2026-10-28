@@ -21,6 +21,8 @@ First beta release (Chrome Web Store, unlisted).
 ### Added (editing)
 - Click an annotation to change it: switch or remove the highlight color and toggle underline/bold (combinations allowed); "Add note" / "Edit note".
 - Deleting an annotation shows an "Undo" toast.
+- Toolbar options in the side panel (⚙): floating toolbar, a small icon that expands into it, or side panel only; above or below the selection; opacity. The page toolbar can be dragged by its ⋮⋮ handle (it reopens at its usual place), and Esc closes it.
+- Style bar at the top of the side panel: highlight, underline, bold or add a note to the text selected on the page.
 - Undo / redo in the side panel (↶ ↷, or ⌘Z / ⇧⌘Z while the panel has focus) for your edits on the current page: create, delete, style, note (recover an overwritten note) and confirm position. Kept until the browser closes.
 
 ### Changed

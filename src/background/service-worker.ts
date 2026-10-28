@@ -16,6 +16,7 @@ import {
   type PageHistory,
 } from '../core/history';
 import { AnnotationRepository, type KVStore } from '../core/repository';
+import { normalizeSettings, SETTINGS_KEY } from '../core/settings';
 import type { AnchorState, Annotation } from '../core/types';
 import { isPdfPageKey, normalizePageKey } from '../core/url';
 import { t } from '../shared/i18n';
@@ -119,6 +120,13 @@ async function handle(msg: BackgroundRequest, sender: chrome.runtime.MessageSend
       await repo.upsert(undo ? undoState(entry, now) : redoState(entry, now));
       broadcast({ type: 'wwm/changed', pageKey: msg.pageKey });
       return { ok: true };
+    }
+
+    case 'wwm/settings-set': {
+      const stored = await chrome.storage.sync.get(SETTINGS_KEY);
+      const settings = normalizeSettings({ ...normalizeSettings(stored[SETTINGS_KEY]), ...msg.patch });
+      await chrome.storage.sync.set({ [SETTINGS_KEY]: settings });
+      return { settings };
     }
 
     case 'wwm/history': {

@@ -3,7 +3,8 @@
  * Add new messages here first (AGENTS.md §5).
  */
 import type { HistoryAction } from '../core/history';
-import type { AnchorState, Annotation, PageRecord } from '../core/types';
+import type { Settings } from '../core/settings';
+import type { AnchorState, Annotation, AnnotationStyle, PageRecord } from '../core/types';
 
 /** Requests handled by the background service worker. */
 export type BackgroundRequest =
@@ -21,7 +22,8 @@ export type BackgroundRequest =
   /** Undo the page's last edit; with `expectId`, only if that edit was on this annotation. */
   | { type: 'wwm/undo'; pageKey: string; expectId?: string }
   | { type: 'wwm/redo'; pageKey: string }
-  | { type: 'wwm/history'; pageKey: string };
+  | { type: 'wwm/history'; pageKey: string }
+  | { type: 'wwm/settings-set'; patch: Partial<Settings> };
 
 export interface BackgroundResponseMap {
   'wwm/list': { annotations: Annotation[] };
@@ -36,6 +38,7 @@ export interface BackgroundResponseMap {
   'wwm/redo': { ok: boolean };
   /** The actions the next undo / redo would revert / reapply, if any. */
   'wwm/history': { undo?: HistoryAction; redo?: HistoryAction };
+  'wwm/settings-set': { settings: Settings };
 }
 
 export type BackgroundResponse<T extends BackgroundRequest['type']> = BackgroundResponseMap[T];
@@ -45,6 +48,8 @@ export type ContentRequest =
   | { type: 'wwm/scroll-to'; id: string }
   | { type: 'wwm/refresh' }
   | { type: 'wwm/command'; command: string }
+  /** Side panel style bar: annotate the page's current selection. Replies { ok: false } without one. */
+  | { type: 'wwm/apply-style'; style: AnnotationStyle }
   | { type: 'wwm/get-status' };
 
 export interface ContentStatus {
