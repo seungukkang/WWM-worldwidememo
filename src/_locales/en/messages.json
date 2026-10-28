@@ -359,5 +359,87 @@
   "panelSelectFirst": {
     "message": "Select text on the page first.",
     "description": "Side panel style bar hint"
+  },
+  "searchPlaceholder": {
+    "message": "Search titles, addresses, quotes, notes",
+    "description": "Side panel library / labels"
+  },
+  "filterNotes": {
+    "message": "With notes",
+    "description": "Side panel library / labels"
+  },
+  "filterAttention": {
+    "message": "Needs attention",
+    "description": "Side panel library / labels"
+  },
+  "filterPdf": {
+    "message": "PDF",
+    "description": "Side panel library / labels"
+  },
+  "libraryNoResults": {
+    "message": "No pages match.",
+    "description": "Side panel library / labels"
+  },
+  "labelNew": {
+    "message": "New label",
+    "description": "Side panel library / labels"
+  },
+  "labelNewPlaceholder": {
+    "message": "New label name, then Enter",
+    "description": "Side panel library / labels"
+  },
+  "labelManage": {
+    "message": "Manage labels",
+    "description": "Side panel library / labels"
+  },
+  "labelAdd": {
+    "message": "+ Label",
+    "description": "Side panel library / labels"
+  },
+  "labelEdit": {
+    "message": "Labels for this page",
+    "description": "Side panel library / labels"
+  },
+  "labelColor": {
+    "message": "Change color",
+    "description": "Side panel library / labels"
+  },
+  "labelName": {
+    "message": "Label name",
+    "description": "Side panel library / labels"
+  },
+  "labelUp": {
+    "message": "Move up",
+    "description": "Side panel library / labels"
+  },
+  "labelDown": {
+    "message": "Move down",
+    "description": "Side panel library / labels"
+  },
+  "labelDeleteTitle": {
+    "message": "Delete label (pages and annotations are kept)",
+    "description": "Side panel library / labels"
+  },
+  "labelsEmpty": {
+    "message": "No labels yet. Create one with +.",
+    "description": "Side panel library / labels"
+  },
+  "labelRemove": {
+    "message": "Remove label “$name$”",
+    "description": "Side panel labels",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "labelDeleted": {
+    "message": "Label “$name$” deleted",
+    "description": "Side panel labels",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
   }
 }

@@ -13,6 +13,8 @@
  *       the side panel's undo/redo restores an overwritten note.
  *   6c. toolbar: above/below, compact icon, drag by the handle (reset after
  *       closing), Esc, opacity; "side panel only" mode and the panel's style bar.
+ *   6d. library: create a label from [This page], filter by it and search in [All],
+ *       rename, delete + undo, export v2, storage schema v2.
  *   7. PDF viewer basics: zoom keeps annotations, links (internal + Back, web, mailto),
  *      page number, outline, download, print.
  *
@@ -381,6 +383,55 @@ try {
     hintShown && (await live()).length === countBefore + 1 && created?.target.selectors[0].exact === snippet,
     `hint=${hintShown}, created=${created?.target.selectors[0].exact}`,
   );
+
+  // ---- library: labels, chips, search ------------------------------------
+  await barPanel.bringToFront();
+  await barPanel.click('#page-labels .chip.add');
+  await barPanel.fill('#page-labels .label-menu .label-input', 'Papers');
+  await barPanel.press('#page-labels .label-menu .label-input', 'Enter');
+  await barPanel.waitForSelector('#page-labels .tag');
+  const pageTag = await barPanel.textContent('#page-labels .tag');
+  await barPanel.click('[role="tab"][data-tab="all"]');
+  await barPanel.waitForSelector('#library-chips .chip .dot');
+  const labelChip = barPanel.locator('#library-chips .chip', { has: barPanel.locator('.dot') });
+  await labelChip.click();
+  await barPanel.waitForTimeout(200);
+  const filtered = await barPanel.locator('#all-list .item').count();
+  await barPanel.fill('#library-search', 'no-such-text-anywhere');
+  await barPanel.waitForTimeout(200);
+  const noResults = await barPanel.locator('#all-list .empty').count();
+  await barPanel.fill('#library-search', 'rewritten'); // a note written earlier on this page
+  await barPanel.waitForTimeout(200);
+  const byNote = await barPanel.locator('#all-list .item').count();
+  check(
+    'library: label from the page, chip filter and search',
+    pageTag?.includes('Papers') && filtered === 1 && noResults === 1 && byNote === 1,
+    `tag=${pageTag}, filtered=${filtered}, none=${noResults}, byNote=${byNote}`,
+  );
+
+  await barPanel.fill('#library-search', '');
+  await barPanel.click('#library-filters .link'); // Manage labels
+  const nameInput = barPanel.locator('#label-manage .manage-row .label-input');
+  await nameInput.fill('Reading');
+  await nameInput.press('Enter');
+  await nameInput.blur();
+  await barPanel.waitForTimeout(300);
+  const renamed = await labelChip.textContent();
+  await barPanel.click('#label-manage .manage-row .icon-btn:last-child'); // delete
+  await barPanel.waitForTimeout(300);
+  const chipsAfterDelete = await labelChip.count();
+  await barPanel.click('#panel-toast button'); // undo
+  await barPanel.waitForTimeout(300);
+  const labelRestored = await labelChip.count();
+  const exported = await barPanel.evaluate(() => chrome.runtime.sendMessage({ type: 'wwm/export' }));
+  const meta = (await sw.evaluate(() => chrome.storage.local.get('wwm:meta')))['wwm:meta'];
+  check(
+    'library: rename, delete + undo, export v2, schema v2',
+    renamed?.includes('Reading') && chipsAfterDelete === 0 && labelRestored === 1 && exported.labels?.length === 1 && meta?.schemaVersion === 2,
+    `renamed=${renamed}, afterDelete=${chipsAfterDelete}, restored=${labelRestored}, schema=${meta?.schemaVersion}`,
+  );
+  await barPanel.screenshot({ path: join(tmpdir(), 'wwm-library.png') });
+
   await barPanel.close();
   await sw.evaluate((key) => chrome.storage.sync.remove(key), 'wwm:settings');
 

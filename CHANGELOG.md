@@ -4,6 +4,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 
 ## [Unreleased]
 
+### Added
+- Labels for annotated pages: create them from the current page or the All tab, put several on a page, and filter the All tab by label chips. Rename, recolor, reorder and delete labels (delete can be undone).
+- Search in the All tab across page titles, addresses, quotes and notes, plus built-in filters: with notes, needs attention, PDF.
+- JSON export includes labels (format version 2).
+
+### Changed
+- Storage schema version 2. Existing data is migrated once on update, after a local backup.
+
 ## [0.1.0] - 2026-10-28
 
 First beta release (Chrome Web Store, unlisted).

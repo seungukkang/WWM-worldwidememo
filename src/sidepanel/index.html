@@ -60,6 +60,7 @@
     <main>
       <section id="tab-page" role="tabpanel">
         <p id="page-title" class="page-title"></p>
+        <div id="page-labels" class="page-labels" hidden></div>
         <ul id="page-list" class="list"></ul>
         <details id="orphans" class="orphans" hidden>
           <summary><span data-i18n="orphansHeading">Annotations not found</span> <span id="orphan-count"></span></summary>
@@ -67,6 +68,10 @@
         </details>
       </section>
       <section id="tab-all" role="tabpanel" hidden>
+        <input id="library-search" class="search" type="search" autocomplete="off" />
+        <div id="library-chips" class="chips"></div>
+        <div id="library-filters" class="chips filters"></div>
+        <div id="label-manage" hidden></div>
         <ul id="all-list" class="list"></ul>
       </section>
     </main>
@@ -75,6 +80,7 @@
       <button id="export" data-i18n="exportJson">Export JSON</button>
       <span class="version" id="version"></span>
     </footer>
+    <div id="panel-toast" class="panel-toast" role="status" hidden></div>
     <script type="module" src="sidepanel.js"></script>
   </body>
 </html>

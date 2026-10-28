@@ -4,7 +4,8 @@
  * See docs/design/data-model.md.
  */
 
-export const SCHEMA_VERSION = 1 as const;
+/** v2 (0.2.0): page labels (`PageRecord.labelIds`, `wwm:labels`). See migrations.ts. */
+export const SCHEMA_VERSION = 2 as const;
 
 export interface TextQuoteSelector {
   type: 'TextQuoteSelector';
@@ -88,6 +89,24 @@ export interface PageRecord {
   title?: string;
   updatedAt: string;
   annotations: Annotation[];
+  /** Labels the user put on this page (ids into `wwm:labels`; deleted labels are ignored). */
+  labelIds?: string[];
+}
+
+export type LabelColor = 'red' | 'orange' | 'yellow' | 'green' | 'teal' | 'blue' | 'purple' | 'gray';
+export const LABEL_COLORS: readonly LabelColor[] = ['red', 'orange', 'yellow', 'green', 'teal', 'blue', 'purple', 'gray'];
+
+/** A user-defined label for organizing pages. See docs/design/library.md. */
+export interface Label {
+  id: string;
+  name: string;
+  color: LabelColor;
+  /** Position among labels (ascending). */
+  order: number;
+  createdAt: string;
+  updatedAt: string;
+  /** Tombstone: pages keep their labelIds so a delete can be undone. */
+  deletedAt?: string;
 }
 
 export const QUOTE_CONTEXT_CHARS = 32;

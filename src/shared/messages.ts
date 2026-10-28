@@ -4,7 +4,7 @@
  */
 import type { HistoryAction } from '../core/history';
 import type { Settings } from '../core/settings';
-import type { AnchorState, Annotation, AnnotationStyle, PageRecord } from '../core/types';
+import type { AnchorState, Annotation, AnnotationStyle, Label, PageRecord } from '../core/types';
 
 /** Requests handled by the background service worker. */
 export type BackgroundRequest =
@@ -23,15 +23,21 @@ export type BackgroundRequest =
   | { type: 'wwm/undo'; pageKey: string; expectId?: string }
   | { type: 'wwm/redo'; pageKey: string }
   | { type: 'wwm/history'; pageKey: string }
-  | { type: 'wwm/settings-set'; patch: Partial<Settings> };
+  | { type: 'wwm/settings-set'; patch: Partial<Settings> }
+  | { type: 'wwm/labels' }
+  /** Create, rename, recolor, or restore (no `deletedAt`) a label. */
+  | { type: 'wwm/label-save'; label: Label }
+  | { type: 'wwm/label-delete'; id: string }
+  | { type: 'wwm/labels-reorder'; ids: string[] }
+  | { type: 'wwm/page-labels'; pageKey: string; labelIds: string[] };
 
 export interface BackgroundResponseMap {
-  'wwm/list': { annotations: Annotation[] };
+  'wwm/list': { annotations: Annotation[]; labelIds: string[] };
   'wwm/list-pages': { pages: PageRecord[] };
   'wwm/upsert': { annotation: Annotation };
   'wwm/delete': { ok: boolean };
   'wwm/anchor-report': { ok: true };
-  'wwm/export': { pages: PageRecord[] };
+  'wwm/export': { pages: PageRecord[]; labels: Label[] };
   'wwm/pdf-lookup': { known: boolean };
   'wwm/open-pdf': { ok: boolean };
   'wwm/undo': { ok: boolean };
@@ -39,6 +45,11 @@ export interface BackgroundResponseMap {
   /** The actions the next undo / redo would revert / reapply, if any. */
   'wwm/history': { undo?: HistoryAction; redo?: HistoryAction };
   'wwm/settings-set': { settings: Settings };
+  'wwm/labels': { labels: Label[] };
+  'wwm/label-save': { label: Label };
+  'wwm/label-delete': { ok: boolean };
+  'wwm/labels-reorder': { ok: true };
+  'wwm/page-labels': { ok: boolean };
 }
 
 export type BackgroundResponse<T extends BackgroundRequest['type']> = BackgroundResponseMap[T];
@@ -58,7 +69,7 @@ export interface ContentStatus {
 }
 
 /** Broadcast from background to extension pages (side panel). */
-export type Broadcast = { type: 'wwm/changed'; pageKey: string };
+export type Broadcast = { type: 'wwm/changed'; pageKey: string } | { type: 'wwm/labels-changed' };
 
 export async function sendToBackground<T extends BackgroundRequest>(
   msg: T,

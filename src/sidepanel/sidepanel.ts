@@ -4,12 +4,13 @@
  */
 import type { HistoryAction } from '../core/history';
 import type { Settings, ToolbarMode, ToolbarPlacement } from '../core/settings';
-import { getSelector, type Annotation, type HighlightColor, type PageRecord } from '../core/types';
-import { isPdfPageKey, normalizePageKey } from '../core/url';
+import { getSelector, type Annotation, type HighlightColor, type Label } from '../core/types';
+import { normalizePageKey } from '../core/url';
 import { localizeDocument, t, uiLanguage, type MessageKey } from '../shared/i18n';
 import { sendToBackground, type Broadcast, type ContentRequest, type ContentStatus } from '../shared/messages';
-import { pdfViewerUrl } from '../shared/pdf';
 import { loadSettings, onSettingsChanged } from '../shared/settings';
+import { labelMenu, labelTag, setPageLabels } from './labels';
+import { renderLibrary, setupLibrary } from './library';
 
 const SWATCH: Record<string, string> = {
   yellow: '#ffd600',
@@ -60,15 +61,21 @@ async function refreshActiveTab(): Promise<void> {
  * fetches first and replaces the DOM in one step, and only the latest render
  * of each kind may write — otherwise overlapping renders append twice.
  */
-const renderSeq = { page: 0, all: 0, history: 0 };
+const renderSeq = { page: 0, history: 0 };
+/** The [This page] label menu is open. */
+let pageLabelMenuOpen = false;
 
 async function renderPage(): Promise<void> {
   const seq = ++renderSeq.page;
   void renderHistory();
-  const annotations = activePageKey
-    ? (await sendToBackground({ type: 'wwm/list', pageKey: activePageKey })).annotations
-    : [];
+  const [{ annotations, labelIds }, { labels }] = await Promise.all([
+    activePageKey
+      ? sendToBackground({ type: 'wwm/list', pageKey: activePageKey })
+      : Promise.resolve({ annotations: [], labelIds: [] }),
+    sendToBackground({ type: 'wwm/labels' }),
+  ]);
   if (seq !== renderSeq.page) return;
+  renderPageLabels(annotations.length > 0, labelIds, labels);
 
   const live = annotations.filter((a) => a.anchor?.status !== 'orphaned');
   const orphans = annotations.filter((a) => a.anchor?.status === 'orphaned');
@@ -112,14 +119,28 @@ async function stepHistory(type: 'wwm/undo' | 'wwm/redo'): Promise<void> {
   if (ok) await sendToTab({ type: 'wwm/refresh' });
 }
 
-async function renderAll(): Promise<void> {
-  const seq = ++renderSeq.all;
-  const { pages } = await sendToBackground({ type: 'wwm/list-pages' });
-  if (seq !== renderSeq.all) return;
-  const nonEmpty = pages.filter((p) => p.annotations.some((a) => !a.deletedAt));
-  $<HTMLUListElement>('all-list').replaceChildren(
-    ...(nonEmpty.length === 0 ? [empty(t('emptyAll'))] : nonEmpty.map(pageItem)),
+/** Labels of the current page (only once it has annotations): tags with ×, "+ Label" menu. */
+function renderPageLabels(hasAnnotations: boolean, labelIds: string[], labels: Label[]): void {
+  const row = $('page-labels');
+  row.hidden = !hasAnnotations;
+  if (!hasAnnotations) {
+    pageLabelMenuOpen = false;
+    return;
+  }
+  // `labels` are the live labels in order, so this keeps label order.
+  const tags = labels.filter((l) => labelIds.includes(l.id)).map((l) =>
+    labelTag(l, () => void setPageLabels(activePageKey, labelIds.filter((id) => id !== l.id))),
   );
+  const add = document.createElement('button');
+  add.className = 'chip add';
+  add.textContent = t('labelAdd');
+  add.setAttribute('aria-expanded', String(pageLabelMenuOpen));
+  add.addEventListener('click', (e) => {
+    e.stopPropagation();
+    pageLabelMenuOpen = !pageLabelMenuOpen;
+    void renderPage();
+  });
+  row.replaceChildren(...tags, add, ...(pageLabelMenuOpen ? [labelMenu(activePageKey, labels, labelIds)] : []));
 }
 
 function item(a: Annotation, clickable: boolean): HTMLLIElement {
@@ -175,22 +196,6 @@ function swatchFor(a: Annotation): string {
   if (a.style.underline) return '#e5484d';
   if (a.style.bold) return '#6b6578';
   return '#8e4ec6'; // note only
-}
-
-function pageItem(p: PageRecord): HTMLLIElement {
-  const li = document.createElement('li');
-  li.className = 'item';
-  const title = document.createElement('p');
-  title.className = 'quote';
-  title.textContent = p.title || p.url;
-  const meta = document.createElement('div');
-  meta.className = 'meta';
-  const count = p.annotations.filter((a) => !a.deletedAt).length;
-  meta.textContent = t('pageSummary', count, new Date(p.updatedAt).toLocaleDateString(uiLanguage()));
-  li.append(title, meta);
-  const url = isPdfPageKey(p.pageKey) ? pdfViewerUrl(p.url) : p.url;
-  li.addEventListener('click', () => void chrome.tabs.create({ url }));
-  return li;
 }
 
 function empty(text: string): HTMLLIElement {
@@ -311,8 +316,8 @@ async function sendToTabForResult(msg: ContentRequest): Promise<{ ok?: boolean }
 }
 
 async function exportJson(): Promise<void> {
-  const { pages } = await sendToBackground({ type: 'wwm/export' });
-  const blob = new Blob([JSON.stringify({ format: 'wwm-export', version: 1, pages }, null, 2)], {
+  const { pages, labels } = await sendToBackground({ type: 'wwm/export' });
+  const blob = new Blob([JSON.stringify({ format: 'wwm-export', version: 2, pages, labels }, null, 2)], {
     type: 'application/json',
   });
   const a = document.createElement('a');
@@ -331,7 +336,7 @@ function setupTabs(): void {
       }
       $('tab-page').hidden = tab !== 'page';
       $('tab-all').hidden = tab !== 'all';
-      if (tab === 'all') void renderAll();
+      if (tab === 'all') void renderLibrary();
     });
   }
 }
@@ -341,6 +346,12 @@ localizeDocument();
 setupTabs();
 $('export').addEventListener('click', () => void exportJson());
 setupStyleBar();
+setupLibrary();
+document.addEventListener('click', () => {
+  if (!pageLabelMenuOpen) return;
+  pageLabelMenuOpen = false;
+  void renderPage();
+});
 setupSettings();
 $('undo').addEventListener('click', () => void stepHistory('wwm/undo'));
 $('redo').addEventListener('click', () => void stepHistory('wwm/redo'));
@@ -360,7 +371,14 @@ chrome.tabs.onUpdated.addListener((tabId, info) => {
   if (tabId === activeTabId && (info.url || info.status === 'complete')) void refreshActiveTab();
 });
 chrome.runtime.onMessage.addListener((msg: Broadcast) => {
+  const libraryShown = !$('tab-all').hidden;
+  if (msg.type === 'wwm/labels-changed') {
+    void renderPage();
+    if (libraryShown) void renderLibrary();
+    return;
+  }
   if (msg.type !== 'wwm/changed') return;
+  if (libraryShown) void renderLibrary();
   if (msg.pageKey === activePageKey) void renderPage();
   else if (!keyFromTab) void refreshActiveTab();
 });

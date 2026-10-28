@@ -11,11 +11,11 @@ import {
   type PageHistory,
 } from '../../src/core/history';
 import { MemoryKV } from '../../src/core/repository';
-import type { Annotation } from '../../src/core/types';
+import { SCHEMA_VERSION, type Annotation } from '../../src/core/types';
 
 const ann = (patch: Partial<Annotation> = {}): Annotation => ({
   id: 'a1',
-  schemaVersion: 1,
+  schemaVersion: SCHEMA_VERSION,
   pageKey: 'https://example.com/',
   url: 'https://example.com/',
   createdAt: '2026-10-28T00:00:00.000Z',

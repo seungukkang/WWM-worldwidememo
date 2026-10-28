@@ -6,9 +6,10 @@
  * Keys:
  *   wwm:page:<pageKey>  → PageRecord
  *   wwm:pages           → string[] (index of pageKeys)
+ *   wwm:labels          → Label[] (including tombstones)
  *   wwm:meta            → { schemaVersion }
  */
-import { SCHEMA_VERSION, type Annotation, type PageRecord } from './types';
+import { SCHEMA_VERSION, type Annotation, type Label, type PageRecord } from './types';
 
 export interface KVStore {
   get<T>(key: string): Promise<T | undefined>;
@@ -30,8 +31,9 @@ export class MemoryKV implements KVStore {
   }
 }
 
-const PAGE_PREFIX = 'wwm:page:';
-const PAGES_KEY = 'wwm:pages';
+export const PAGE_PREFIX = 'wwm:page:';
+export const PAGES_KEY = 'wwm:pages';
+export const LABELS_KEY = 'wwm:labels';
 export const META_KEY = 'wwm:meta';
 
 export class AnnotationRepository {
@@ -106,5 +108,69 @@ export class AnnotationRepository {
 
   async exportAll(): Promise<PageRecord[]> {
     return this.listPages();
+  }
+
+  // -- labels ---------------------------------------------------------------
+
+  /** Live labels in the user's order (`includeDeleted` for export). */
+  async listLabels(includeDeleted = false): Promise<Label[]> {
+    const labels = (await this.kv.get<Label[]>(LABELS_KEY)) ?? [];
+    return labels.filter((l) => includeDeleted || !l.deletedAt).sort((a, b) => a.order - b.order);
+  }
+
+  /** Create or replace a label (rename, recolor, undo a delete by clearing `deletedAt`). */
+  upsertLabel(label: Label): Promise<Label> {
+    return this.exclusive(async () => {
+      const labels = (await this.kv.get<Label[]>(LABELS_KEY)) ?? [];
+      const i = labels.findIndex((l) => l.id === label.id);
+      if (i >= 0) labels[i] = label;
+      else labels.push(label);
+      await this.kv.set({ [LABELS_KEY]: labels });
+      return label;
+    });
+  }
+
+  /** Tombstone a label; pages keep its id so the delete can be undone. */
+  removeLabel(id: string, now: string): Promise<boolean> {
+    return this.exclusive(async () => {
+      const labels = (await this.kv.get<Label[]>(LABELS_KEY)) ?? [];
+      const label = labels.find((l) => l.id === id);
+      if (!label || label.deletedAt) return false;
+      label.deletedAt = now;
+      label.updatedAt = now;
+      await this.kv.set({ [LABELS_KEY]: labels });
+      return true;
+    });
+  }
+
+  /** Set label order to the order of `ids` (labels not listed keep theirs, after these). */
+  reorderLabels(ids: string[], now: string): Promise<void> {
+    return this.exclusive(async () => {
+      const labels = (await this.kv.get<Label[]>(LABELS_KEY)) ?? [];
+      const rank = new Map(ids.map((id, i) => [id, i]));
+      const rest = labels.filter((l) => !rank.has(l.id)).sort((a, b) => a.order - b.order);
+      for (const l of labels) {
+        const r = rank.get(l.id) ?? ids.length + rest.indexOf(l);
+        if (l.order !== r) {
+          l.order = r;
+          l.updatedAt = now;
+        }
+      }
+      await this.kv.set({ [LABELS_KEY]: labels });
+    });
+  }
+
+  /** Replace a page's labels. Does not touch `updatedAt` (lists sort by annotation edits). */
+  setPageLabels(pageKey: string, labelIds: string[]): Promise<boolean> {
+    return this.exclusive(async () => {
+      const key = PAGE_PREFIX + pageKey;
+      const page = await this.kv.get<PageRecord>(key);
+      if (!page) return false;
+      const unique = [...new Set(labelIds)];
+      if (unique.length > 0) page.labelIds = unique;
+      else delete page.labelIds;
+      await this.kv.set({ [key]: page });
+      return true;
+    });
   }
 }

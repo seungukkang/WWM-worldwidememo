@@ -15,6 +15,7 @@ import {
   type HistoryEntry,
   type PageHistory,
 } from '../core/history';
+import { migrateStorage } from '../core/migrations';
 import { AnnotationRepository, type KVStore } from '../core/repository';
 import { normalizeSettings, SETTINGS_KEY } from '../core/settings';
 import type { AnchorState, Annotation } from '../core/types';
@@ -37,7 +38,10 @@ class ChromeStorageKV implements KVStore {
   }
 }
 
-const repo = new AnnotationRepository(new ChromeStorageKV(chrome.storage.local));
+const local = new ChromeStorageKV(chrome.storage.local);
+const repo = new AnnotationRepository(local);
+// Bring stored data to the current schema before handling any request.
+const ready = migrateStorage(local).catch((err: unknown) => console.warn('[WWM] migration failed', err));
 // Undo history lives for the browser session (survives reloads and service
 // worker restarts, cleared when the browser closes).
 const history = new HistoryStore(new ChromeStorageKV(chrome.storage.session));
@@ -76,7 +80,8 @@ chrome.commands.onCommand.addListener((command, tab) => {
 // ---------------------------------------------------------------------------
 
 chrome.runtime.onMessage.addListener((msg: BackgroundRequest, sender, sendResponse) => {
-  handle(msg, sender)
+  ready
+    .then(() => handle(msg, sender))
     .then(sendResponse)
     .catch((err: unknown) => sendResponse({ error: err instanceof Error ? err.message : String(err) }));
   return true; // async response
@@ -85,7 +90,10 @@ chrome.runtime.onMessage.addListener((msg: BackgroundRequest, sender, sendRespon
 async function handle(msg: BackgroundRequest, sender: chrome.runtime.MessageSender): Promise<unknown> {
   switch (msg.type) {
     case 'wwm/list':
-      return { annotations: await repo.list(msg.pageKey) };
+      return {
+        annotations: await repo.list(msg.pageKey),
+        labelIds: (await repo.getPage(msg.pageKey))?.labelIds ?? [],
+      };
 
     case 'wwm/list-pages':
       return { pages: await repo.listPages() };
@@ -142,7 +150,33 @@ async function handle(msg: BackgroundRequest, sender: chrome.runtime.MessageSend
     }
 
     case 'wwm/export':
-      return { pages: await repo.exportAll() };
+      return { pages: await repo.exportAll(), labels: await repo.listLabels(true) };
+
+    case 'wwm/labels':
+      return { labels: await repo.listLabels() };
+
+    case 'wwm/label-save': {
+      const label = await repo.upsertLabel({ ...msg.label, updatedAt: new Date().toISOString() });
+      broadcast({ type: 'wwm/labels-changed' });
+      return { label };
+    }
+
+    case 'wwm/label-delete': {
+      const ok = await repo.removeLabel(msg.id, new Date().toISOString());
+      broadcast({ type: 'wwm/labels-changed' });
+      return { ok };
+    }
+
+    case 'wwm/labels-reorder':
+      await repo.reorderLabels(msg.ids, new Date().toISOString());
+      broadcast({ type: 'wwm/labels-changed' });
+      return { ok: true };
+
+    case 'wwm/page-labels': {
+      const ok = await repo.setPageLabels(msg.pageKey, msg.labelIds);
+      broadcast({ type: 'wwm/changed', pageKey: msg.pageKey });
+      return { ok };
+    }
 
     case 'wwm/pdf-lookup': {
       const key = normalizePageKey(msg.url);
