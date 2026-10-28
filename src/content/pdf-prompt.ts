@@ -3,9 +3,11 @@
  * Offers to reopen the PDF in the WWM viewer, and does so automatically when
  * the user already has annotations on this PDF.
  */
+import { DEFAULT_SETTINGS, isActiveOn } from '../core/settings';
 import { IGNORE_ATTR } from '../core/text-index';
 import { t } from '../shared/i18n';
 import { sendToBackground } from '../shared/messages';
+import { loadSettings } from '../shared/settings';
 
 /** Appended by the WWM viewer's "open in Chrome's viewer" link to skip auto-open. */
 export const NATIVE_VIEWER_HASH = 'wwm-native';
@@ -31,8 +33,11 @@ button {
 .close:hover { opacity: 1; background: rgba(255,255,255,.12); }
 `;
 
-export function startPdfPrompt(): void {
+export async function startPdfPrompt(): Promise<void> {
   const url = location.href.split('#')[0] as string;
+  // Switched off (globally or for this site): leave Chrome's viewer alone.
+  const settings = await loadSettings().catch(() => DEFAULT_SETTINGS);
+  if (!isActiveOn(settings, url)) return;
   const open = (): void => void sendToBackground({ type: 'wwm/open-pdf', url });
 
   if (!location.hash.includes(NATIVE_VIEWER_HASH)) {

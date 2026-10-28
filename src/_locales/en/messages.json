@@ -457,5 +457,39 @@
   "renamePlaceholder": {
     "message": "Name (leave empty for the page's own title), then Enter",
     "description": "All tab: rename input"
+  },
+  "switchOnTitle": {
+    "message": "WWM is on — click to turn it off on all sites",
+    "description": "On/off switch"
+  },
+  "switchOffTitle": {
+    "message": "WWM is off — click to turn it on",
+    "description": "On/off switch"
+  },
+  "offNotice": {
+    "message": "WWM is off: no toolbar or highlights on pages. Your annotations are kept.",
+    "description": "On/off switch"
+  },
+  "settingsSite": {
+    "message": "This site",
+    "description": "On/off switch"
+  },
+  "siteOffNotice": {
+    "message": "WWM is off on $site$. Your annotations are kept.",
+    "description": "On/off switch",
+    "placeholders": {
+      "site": {
+        "content": "$1"
+      }
+    }
+  },
+  "siteDisable": {
+    "message": "Turn off WWM on $site$",
+    "description": "On/off switch",
+    "placeholders": {
+      "site": {
+        "content": "$1"
+      }
+    }
   }
 }

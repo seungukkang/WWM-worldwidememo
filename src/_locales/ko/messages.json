@@ -414,5 +414,39 @@
   "renamePlaceholder": {
     "message": "이름 입력 후 Enter (비우면 원래 제목)",
     "description": "All tab: rename input"
+  },
+  "switchOnTitle": {
+    "message": "WWM 켜짐 — 누르면 모든 사이트에서 끕니다",
+    "description": "On/off switch"
+  },
+  "switchOffTitle": {
+    "message": "WWM 꺼짐 — 누르면 다시 켭니다",
+    "description": "On/off switch"
+  },
+  "offNotice": {
+    "message": "WWM이 꺼져 있습니다. 페이지에 툴바와 하이라이트를 표시하지 않으며, 주석은 그대로 보관됩니다.",
+    "description": "On/off switch"
+  },
+  "settingsSite": {
+    "message": "이 사이트",
+    "description": "On/off switch"
+  },
+  "siteOffNotice": {
+    "message": "$site$ 에서 WWM이 꺼져 있습니다. 주석은 그대로 보관됩니다.",
+    "description": "On/off switch",
+    "placeholders": {
+      "site": {
+        "content": "$1"
+      }
+    }
+  },
+  "siteDisable": {
+    "message": "$site$ 에서 WWM 끄기",
+    "description": "On/off switch",
+    "placeholders": {
+      "site": {
+        "content": "$1"
+      }
+    }
   }
 }

@@ -11,6 +11,7 @@ First public beta (Chrome Web Store, unlisted).
 ### Added
 - Labels for annotated pages: create them from the current page or the All tab, put several on a page, and filter the All tab by label chips. Rename, recolor, reorder and delete labels (delete can be undone).
 - Search in the All tab across page titles, addresses, quotes and notes, plus built-in filters: with notes, needs attention, PDF.
+- Turn WWM on or off from the side panel header, or only for the current site (⚙ settings). When off, pages show no toolbar and no highlights; annotations are kept, and turning it back on restores them without reloading. The toolbar icon shows OFF.
 - Rename pages in the All tab (✎); the name is kept when the page's own title changes, is searchable, and is shown on the This page tab. Clearing it restores the page's title.
 - Clicking a page in the All tab switches to it if it is already open in the window, instead of opening it again.
 - JSON export includes labels (format version 2).

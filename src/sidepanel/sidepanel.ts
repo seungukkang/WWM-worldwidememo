@@ -3,7 +3,7 @@
  * JSON export. Reads via background messages; never writes storage directly.
  */
 import type { HistoryAction } from '../core/history';
-import type { Settings, ToolbarMode, ToolbarPlacement } from '../core/settings';
+import { DEFAULT_SETTINGS, siteOf, type Settings, type ToolbarMode, type ToolbarPlacement } from '../core/settings';
 import { getSelector, type Annotation, type HighlightColor, type Label } from '../core/types';
 import { normalizePageKey } from '../core/url';
 import { localizeDocument, t, uiLanguage, type MessageKey } from '../shared/i18n';
@@ -44,6 +44,9 @@ let activeTabId: number | undefined;
 let activePageKey = '';
 /** The tab's own title; the page tab shows the user's name for the page instead, if any. */
 let activeTabTitle = '';
+/** Site (hostname) of the active tab, for "turn off on this site"; null for non-web pages. */
+let activeSite: string | null = null;
+let currentSettings: Settings = DEFAULT_SETTINGS;
 /** False until the tab itself reported its page key (e.g. the PDF viewer is still loading). */
 let keyFromTab = false;
 
@@ -56,6 +59,8 @@ async function refreshActiveTab(): Promise<void> {
   activePageKey = fromTab ?? (tab?.url ? normalizePageKey(tab.url) : '');
   activeTabTitle = tab?.title ?? '';
   $('page-title').textContent = activeTabTitle;
+  activeSite = siteOfTab(tab?.url);
+  renderSwitch();
   await renderPage();
 }
 
@@ -292,6 +297,8 @@ function setupSettings(): void {
   const opacity = $<HTMLInputElement>('set-opacity');
   const opacityValue = $<HTMLOutputElement>('set-opacity-value');
   const show = (s: Settings): void => {
+    currentSettings = s;
+    renderSwitch();
     mode.value = s.toolbarMode;
     placement.value = s.toolbarPlacement;
     opacity.value = String(Math.round(s.toolbarOpacity * 100));
@@ -308,6 +315,51 @@ function setupSettings(): void {
 
   void loadSettings().then(show);
   onSettingsChanged(show);
+}
+
+/** A tab's site; for the WWM PDF viewer, the site the PDF comes from. */
+function siteOfTab(url: string | undefined): string | null {
+  if (!url) return null;
+  const viewer = chrome.runtime.getURL('pdf/viewer.html');
+  if (url.startsWith(viewer)) return siteOf(new URL(url).searchParams.get('file') ?? '');
+  return siteOf(url);
+}
+
+function saveSettings(patch: Partial<Settings>): void {
+  void sendToBackground({ type: 'wwm/settings-set', patch });
+}
+
+/** The on/off switch, the "off" notice, the per-site checkbox and the style bar's state. */
+function renderSwitch(): void {
+  const { enabled, disabledSites } = currentSettings;
+  const siteOff = activeSite !== null && disabledSites.includes(activeSite);
+  const sw = $<HTMLButtonElement>('wwm-switch');
+  sw.setAttribute('aria-checked', String(enabled));
+  sw.title = t(enabled ? 'switchOnTitle' : 'switchOffTitle');
+  sw.setAttribute('aria-label', sw.title);
+
+  const notice = $('off-notice');
+  notice.hidden = enabled && !siteOff;
+  notice.textContent = !enabled ? t('offNotice') : siteOff && activeSite ? t('siteOffNotice', activeSite) : '';
+
+  $('site-settings').hidden = activeSite === null;
+  if (activeSite) {
+    $<HTMLInputElement>('set-site-off').checked = siteOff;
+    $('site-off-label').textContent = t('siteDisable', activeSite);
+  }
+  const off = !enabled || siteOff;
+  $('stylebar').classList.toggle('disabled', off);
+  for (const b of $('stylebar').querySelectorAll('button')) b.disabled = off;
+}
+
+function setupSwitch(): void {
+  $('wwm-switch').addEventListener('click', () => saveSettings({ enabled: !currentSettings.enabled }));
+  const siteOff = $<HTMLInputElement>('set-site-off');
+  siteOff.addEventListener('change', () => {
+    if (!activeSite) return;
+    const others = currentSettings.disabledSites.filter((s) => s !== activeSite);
+    saveSettings({ disabledSites: siteOff.checked ? [...others, activeSite] : others });
+  });
 }
 
 async function sendToTabForResult(msg: ContentRequest): Promise<{ ok?: boolean } | undefined> {
@@ -350,6 +402,7 @@ localizeDocument();
 setupTabs();
 $('export').addEventListener('click', () => void exportJson());
 setupStyleBar();
+setupSwitch();
 setupLibrary();
 document.addEventListener('click', () => {
   if (!pageLabelMenuOpen) return;

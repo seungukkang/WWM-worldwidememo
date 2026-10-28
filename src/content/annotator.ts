@@ -8,7 +8,7 @@ import { createAnnotation } from '../core/factory';
 import { describeRange } from '../core/selectors';
 import { buildTextIndex, offsetsToRange, type TextIndex } from '../core/text-index';
 import type { HistoryAction } from '../core/history';
-import { DEFAULT_SETTINGS, type Settings } from '../core/settings';
+import { DEFAULT_SETTINGS, isActiveOn, type Settings } from '../core/settings';
 import { hasVisibleStyle, toggleStyle, type StyleChange } from '../core/style';
 import type { AnchorState, Annotation, AnnotationStyle } from '../core/types';
 import { t } from '../shared/i18n';
@@ -36,6 +36,12 @@ let pendingRange: Range | null = null;
 let editingId: string | null = null;
 let cachedIndex: TextIndex | null = null;
 let settings: Settings = DEFAULT_SETTINGS;
+/**
+ * WWM is switched on for this page (globally and for its site). Off means
+ * nothing on the page: no toolbar, no highlights; annotations stay stored.
+ * False until the settings are known, so nothing flashes on a page where it is off.
+ */
+let active = false;
 
 // Created in startAnnotator() so importing this module has no side effects.
 let renderer: HighlightRenderer;
@@ -115,6 +121,7 @@ function textIndex(): TextIndex {
 
 async function load(): Promise<void> {
   pageKey = host.pageKey();
+  if (!active) return;
   const res = await sendToBackground({ type: 'wwm/list', pageKey });
   annotations = res.annotations;
   anchorAll();
@@ -144,7 +151,7 @@ function anchorAll(): void {
 }
 
 async function report(): Promise<void> {
-  if (annotations.length === 0) return;
+  if (!active || annotations.length === 0) return;
   const results = [...states].map(([id, anchor]) => ({ id, anchor }));
   const signature = results.map((r) => `${r.id}:${r.anchor.status}`).join('|');
   if (signature === lastReportSignature) return;
@@ -281,6 +288,7 @@ function onSelectionEnd(): void {
       retire(true);
       return;
     }
+    if (!active) return;
     pendingRange = range;
     presentSelection(range);
   }, 0);
@@ -310,6 +318,7 @@ const observer = new MutationObserver(() => {
       retire(false);
       return;
     }
+    if (!active) return;
     cachedIndex = null;
     if (host.pageKey() !== pageKey) {
       lastReportSignature = '';
@@ -341,7 +350,7 @@ function onMouseDown(e: MouseEvent): void {
 }
 
 function onClick(e: MouseEvent): void {
-  if (ui.contains(e.target) || currentSelectionRange()) return;
+  if (!active || ui.contains(e.target) || currentSelectionRange()) return;
   const id = renderer.hitTest(e.clientX, e.clientY);
   const a = id ? renderer.get(id)?.annotation : undefined;
   if (a && !extensionAlive()) retire(true);
@@ -364,7 +373,7 @@ function onMessage(msg: ContentRequest, _sender: chrome.runtime.MessageSender, s
   if (!CONTENT_REQUESTS.has(msg.type)) return;
   switch (msg.type) {
     case 'wwm/scroll-to':
-      scrollTo(msg.id);
+      if (active) scrollTo(msg.id);
       break;
     case 'wwm/refresh':
       void load();
@@ -373,7 +382,7 @@ function onMessage(msg: ContentRequest, _sender: chrome.runtime.MessageSender, s
       sendResponse({ pageKey, counts: counts() } satisfies ContentStatus);
       return;
     case 'wwm/command': {
-      const range = currentSelectionRange();
+      const range = active ? currentSelectionRange() : null;
       if (!range) {
         sendResponse({ ok: false });
         return;
@@ -385,7 +394,7 @@ function onMessage(msg: ContentRequest, _sender: chrome.runtime.MessageSender, s
       break;
     }
     case 'wwm/apply-style': {
-      const range = currentSelectionRange();
+      const range = active ? currentSelectionRange() : null;
       if (!range) {
         sendResponse({ ok: false });
         return;
@@ -405,16 +414,17 @@ export function startAnnotator(h: AnnotatorHost): void {
   const apply = (s: Settings): void => {
     // A selection already on screen (toolbar/icon showing, or nothing shown in
     // "side panel only" mode) is re-presented with the new settings right away.
-    const reshow = !ui.isEditing() && (ui.isSelectionUiOpen() || settings.toolbarMode === 'panel');
+    const reshow = active && !ui.isEditing() && (ui.isSelectionUiOpen() || settings.toolbarMode === 'panel');
     settings = s;
     ui.applySettings(s);
-    const range = reshow ? currentSelectionRange() : null;
+    setActive(isActiveOn(s, host.url()));
+    const range = reshow && active ? currentSelectionRange() : null;
     if (range) {
       pendingRange = range;
       presentSelection(range);
     }
   };
-  void loadSettings().then(apply, () => undefined);
+  void loadSettings().then(apply, () => setActive(true));
   onSettingsChanged(apply);
   if (!isSupported()) {
     console.warn('[WWM] CSS Custom Highlight API not available; rendering disabled.');
@@ -423,5 +433,20 @@ export function startAnnotator(h: AnnotatorHost): void {
   for (const [type, listener] of DOCUMENT_LISTENERS) document.addEventListener(type, listener as EventListener);
   chrome.runtime.onMessage.addListener(onMessage);
   observer.observe(host.root(), { childList: true, subtree: true, characterData: true });
-  void load().catch((err: unknown) => console.warn('[WWM] load failed', err));
+}
+
+/** Switch WWM on or off for this page (see `active`); the toolbar icon shows OFF while off. */
+function setActive(next: boolean): void {
+  if (next === active) return;
+  active = next;
+  if (active) {
+    lastReportSignature = '';
+    void load().catch((err: unknown) => console.warn('[WWM] load failed', err));
+  } else {
+    ui.hideAll();
+    pendingRange = null;
+    states = new Map();
+    renderer.render([]);
+  }
+  void sendToBackground({ type: 'wwm/tab-state', active }).catch(() => undefined);
 }

@@ -9,7 +9,8 @@
   <body>
     <header class="top">
       <img src="../icons/icon-32.png" alt="" width="20" height="20" />
-      <h1>WorldWideMemo</h1>
+      <h1 title="WorldWideMemo">WWM</h1>
+      <button id="wwm-switch" class="switch" role="switch" aria-checked="true"><span class="knob"></span></button>
       <div class="history">
         <button id="undo" class="icon" disabled>
           <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8 5L4 9l4 4M4 9h8a4 4 0 0 1 0 8h-2" /></svg>
@@ -30,9 +31,18 @@
       </nav>
     </header>
 
+    <section id="off-notice" class="off-notice" role="status" hidden></section>
+
     <section id="stylebar" class="stylebar" aria-live="polite"></section>
 
     <section id="settings" class="settings" hidden>
+      <div id="site-settings" hidden>
+        <h2 data-i18n="settingsSite">This site</h2>
+        <label class="field check">
+          <input id="set-site-off" type="checkbox" />
+          <span id="site-off-label"></span>
+        </label>
+      </div>
       <h2 data-i18n="settingsToolbar">Toolbar</h2>
       <label class="field">
         <span data-i18n="toolbarModeLabel">When text is selected</span>

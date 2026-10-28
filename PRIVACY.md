@@ -23,7 +23,7 @@ Only when **you create an annotation**, WWM stores:
 | For PDFs: the document's fingerprint (an ID computed from the file) | To recognize the same PDF again |
 | Labels you create, which pages you put them on, and names you give pages | To organize your annotated pages |
 | A short undo history of your edits on each page (`chrome.storage.session`, cleared when you close the browser) | So you can undo / redo your edits |
-| Your toolbar preferences (display mode, position, opacity) in `chrome.storage.sync` — never annotations | Chrome keeps these preferences in sync across browsers where you are signed in, if Chrome sync is on |
+| Your preferences in `chrome.storage.sync`: on/off, the sites where you turned WWM off (their addresses, e.g. `example.com`), and toolbar options — never annotations | Chrome keeps these preferences in sync across browsers where you are signed in, if Chrome sync is on |
 
 WWM does **not** store full page contents, your browsing history, or anything about pages where you have not created an annotation.
 
@@ -88,7 +88,7 @@ WWM은 웹페이지의 텍스트에 하이라이트·밑줄·볼드·메모를 �
 | PDF의 경우: 문서 fingerprint (파일에서 계산한 식별값) | 같은 PDF를 다시 알아보기 위해 |
 | 사용자가 만든 라벨, 라벨을 붙인 페이지, 페이지에 붙인 이름 | 주석 단 페이지를 정리하기 위해 |
 | 페이지별 최근 편집 기록 (`chrome.storage.session`, 브라우저를 닫으면 삭제) | 실행 취소 / 다시 실행을 위해 |
-| 툴바 설정(표시 방식, 위치, 투명도), `chrome.storage.sync` — 주석은 포함하지 않음 | Chrome 동기화가 켜져 있으면 로그인한 다른 브라우저에도 설정이 맞춰집니다 |
+| `chrome.storage.sync` 의 설정: 켜기/끄기, WWM을 끈 사이트 주소(예: `example.com`), 툴바 옵션 — 주석은 포함하지 않음 | Chrome 동기화가 켜져 있으면 로그인한 다른 브라우저에도 설정이 맞춰집니다 |
 
 페이지 전체 내용, 방문 기록, 주석을 만들지 않은 페이지에 대한 정보는 **저장하지 않습니다.**
 

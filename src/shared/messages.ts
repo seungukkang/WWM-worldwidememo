@@ -31,7 +31,9 @@ export type BackgroundRequest =
   | { type: 'wwm/labels-reorder'; ids: string[] }
   | { type: 'wwm/page-labels'; pageKey: string; labelIds: string[] }
   /** Rename a page in the library; an empty title restores the page's own title. */
-  | { type: 'wwm/page-title'; pageKey: string; title: string };
+  | { type: 'wwm/page-title'; pageKey: string; title: string }
+  /** The sender tab's page has WWM switched on/off (toolbar icon badge). */
+  | { type: 'wwm/tab-state'; active: boolean };
 
 export interface BackgroundResponseMap {
   'wwm/list': { annotations: Annotation[]; labelIds: string[]; customTitle?: string };
@@ -53,6 +55,7 @@ export interface BackgroundResponseMap {
   'wwm/labels-reorder': { ok: true };
   'wwm/page-labels': { ok: boolean };
   'wwm/page-title': { ok: boolean };
+  'wwm/tab-state': { ok: true };
 }
 
 export type BackgroundResponse<T extends BackgroundRequest['type']> = BackgroundResponseMap[T];

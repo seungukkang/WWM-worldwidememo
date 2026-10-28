@@ -9,7 +9,7 @@ import { startPdfPrompt } from './pdf-prompt';
 
 function start(): void {
   if (document.contentType === 'application/pdf') {
-    startPdfPrompt();
+    void startPdfPrompt();
     return;
   }
   startAnnotator({

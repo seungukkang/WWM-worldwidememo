@@ -15,6 +15,8 @@
  *       closing), Esc, opacity; "side panel only" mode and the panel's style bar.
  *   6d. library: create a label from [This page], filter by it and search in [All],
  *       rename, delete + undo, export v2, storage schema v2.
+ *   6e. on/off: the side panel switch and "turn off on this site" hide the toolbar and
+ *       every highlight (annotations kept), the toolbar icon shows OFF; turning on restores.
  *   8. (last: it turns the extension off here) after the extension is reloaded, an
  *      already-open tab shows a "refresh this page" notice instead of a dead toolbar.
  *   7. PDF viewer basics: zoom keeps annotations, links (internal + Back, web, mailto),
@@ -476,6 +478,42 @@ try {
     'library: rename a page; the name is searchable and shown on the page tab',
     renamedTitle === 'My diffusion notes' && foundByName === 1 && pageTabTitle === 'My diffusion notes',
     `card=${renamedTitle}, found=${foundByName}, pageTab=${pageTabTitle}`,
+  );
+
+  // ---- on/off -----------------------------------------------------------------
+  const drawn = () => page.evaluate(() => [...CSS.highlights.values()].reduce((n, h) => n + h.size, 0));
+  const badge = () => sw.evaluate((id) => chrome.action.getBadgeText({ tabId: id }), articleTabId);
+  const drawnOn = await drawn();
+  await barPanel.click('#wwm-switch');
+  await page.waitForTimeout(400);
+  const drawnOff = await drawn();
+  const badgeOff = await badge();
+  const noticeOff = await barPanel.isVisible('#off-notice');
+  await selectText(snippet);
+  const toolbarWhenOff = await toolbar();
+  await barPanel.bringToFront();
+  await barPanel.click('#wwm-switch');
+  await page.waitForTimeout(600);
+  const drawnBack = await drawn();
+  check(
+    'switch off hides highlights and the toolbar, shows OFF; switch on restores',
+    drawnOn > 0 && drawnOff === 0 && badgeOff === 'OFF' && noticeOff && toolbarWhenOff === null && drawnBack === drawnOn,
+    `drawn ${drawnOn} → ${drawnOff} → ${drawnBack}, badge=${badgeOff}, notice=${noticeOff}`,
+  );
+
+  await barPanel.click('#settings-toggle');
+  const siteLabel = await barPanel.textContent('#site-off-label');
+  await barPanel.check('#set-site-off');
+  await page.waitForTimeout(400);
+  const drawnSiteOff = await drawn();
+  await barPanel.uncheck('#set-site-off');
+  await page.waitForTimeout(600);
+  const drawnSiteBack = await drawn();
+  await barPanel.click('#settings-toggle');
+  check(
+    'turn off on this site hides WWM there; turning it back on restores',
+    siteLabel?.includes('127.0.0.1') && drawnSiteOff === 0 && drawnSiteBack === drawnOn,
+    `label=${siteLabel}, drawn ${drawnSiteOff} → ${drawnSiteBack}`,
   );
 
   // Clicking a page that is already open in this window switches to its tab.

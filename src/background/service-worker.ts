@@ -175,6 +175,15 @@ async function handle(msg: BackgroundRequest, sender: chrome.runtime.MessageSend
       broadcast({ type: 'wwm/labels-changed' });
       return { ok: true };
 
+    case 'wwm/tab-state': {
+      const tabId = sender.tab?.id;
+      if (tabId !== undefined) {
+        await chrome.action.setBadgeText({ tabId, text: msg.active ? '' : 'OFF' });
+        if (!msg.active) await chrome.action.setBadgeBackgroundColor({ tabId, color: '#8B8D98' });
+      }
+      return { ok: true };
+    }
+
     case 'wwm/page-title': {
       const ok = await repo.setPageTitle(msg.pageKey, msg.title);
       broadcast({ type: 'wwm/changed', pageKey: msg.pageKey });
