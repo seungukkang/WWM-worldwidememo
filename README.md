@@ -38,6 +38,7 @@ Design rule: **a wrong anchor is worse than a missing one.** When in doubt, WWM 
 - Click an annotation to read, edit or delete its note; confirm relocated annotations in one click
 - Side panel: annotations on the current page with their status, a "this site changed" summary, and all annotated pages
 - Keyboard shortcuts (`Alt+Shift+H` highlight, `Alt+Shift+N` note, `Alt+Shift+U` underline) and right-click menu
+- PDFs (e.g. arXiv papers): open them in the built-in WWM PDF viewer to annotate — with working links, zoom, page navigation, table of contents, download and print; PDFs you have annotated reopen there automatically
 - JSON export
 - English / Korean UI (follows your browser language)
 - No DOM mutation: rendered with the [CSS Custom Highlight API](https://developer.mozilla.org/en-US/docs/Web/API/CSS_Custom_Highlight_API), so pages and SPAs are not broken
@@ -93,11 +94,11 @@ scripts/          Build, icons, store assets, packaging
 - [x] Highlight / underline / bold / notes, local storage, side panel
 - [x] Deterministic re-anchoring (position → exact → fuzzy) with review & "not found" states
 - [x] English / Korean
+- [x] PDF support (bundled pdf.js viewer)
 - [ ] Full-text search across all annotations
 - [ ] Markdown export for Obsidian / Notion, with links back to the exact passage
 - [ ] Version history & diff view: see how the text around your note changed
 - [ ] Optional sync across devices via your own Google Drive (opt-in, no WWM server)
-- [ ] PDF support (bundled PDF viewer)
 - [ ] Semantic + on-device LLM re-anchoring for rewritten sentences (suggest only, you confirm)
 
 ## Feedback
@@ -117,6 +118,7 @@ Copyright © 2026 Seunguk Kang. **All rights reserved.** The source is public fo
 - 주석은 원문 인용 + 앞뒤 문맥 + 위치(W3C Web Annotation 셀렉터)로 저장되며, 방문할 때마다 **위치 → 정확한 문장 → 유사 문장(fuzzy)** 순서로 다시 찾습니다.
 - 확실하지 않으면 **확인 필요**로 표시해 사용자에게 묻고, 문장이 삭제되면 **찾지 못한 주석**으로 보관해 메모를 잃지 않습니다.
 - 모든 데이터는 브라우저에만 저장됩니다. 계정·서버·분석 도구가 없습니다 → [개인정보처리방침](PRIVACY.md#개인정보처리방침-한국어)
+- arXiv 논문 같은 PDF도 WWM PDF 뷰어로 열어 주석을 달 수 있습니다(링크·확대/축소·페이지 이동·목차·다운로드·인쇄 지원). 주석을 단 PDF는 다음에 열 때 자동으로 WWM 뷰어로 열립니다.
 - UI는 브라우저 언어에 따라 한국어/영어로 표시됩니다.
 
 **설치(개발자 모드)**: 위 *Install* 의 명령으로 빌드한 뒤 `chrome://extensions` → 개발자 모드 → "압축해제된 확장 프로그램을 로드합니다" → `dist/` 선택.

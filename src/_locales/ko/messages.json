@@ -153,5 +153,57 @@
         "content": "$1"
       }
     }
+  },
+  "pdfPrompt": {
+    "message": "이 PDF에 하이라이트와 메모를 남기세요",
+    "description": "Prompt shown over Chrome's PDF viewer"
+  },
+  "pdfOpenInWwm": {
+    "message": "WWM으로 열기",
+    "description": "Button: reopen the PDF in the WWM viewer"
+  },
+  "dismiss": {
+    "message": "닫기",
+    "description": "Close button title"
+  },
+  "pdfLoading": {
+    "message": "PDF 불러오는 중…",
+    "description": "PDF viewer status"
+  },
+  "pdfLoadError": {
+    "message": "이 PDF를 열 수 없습니다.",
+    "description": "PDF viewer error"
+  },
+  "pdfOpenNative": {
+    "message": "Chrome 기본 PDF 뷰어로 열기",
+    "description": "PDF viewer header link"
+  },
+  "pdfOutline": {
+    "message": "목차",
+    "description": "PDF viewer toolbar"
+  },
+  "pdfPageNumber": {
+    "message": "페이지 번호",
+    "description": "PDF viewer toolbar"
+  },
+  "pdfZoomIn": {
+    "message": "확대",
+    "description": "PDF viewer toolbar"
+  },
+  "pdfZoomOut": {
+    "message": "축소",
+    "description": "PDF viewer toolbar"
+  },
+  "pdfFitWidth": {
+    "message": "폭에 맞춤",
+    "description": "PDF viewer toolbar"
+  },
+  "pdfDownload": {
+    "message": "다운로드",
+    "description": "PDF viewer toolbar"
+  },
+  "pdfPrint": {
+    "message": "인쇄",
+    "description": "PDF viewer toolbar"
   }
 }

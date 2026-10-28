@@ -53,3 +53,18 @@ export function normalizePageKey(rawUrl: string): string {
 
   return `${url.protocol}//${host}${path}${search ? `?${search}` : ''}${hash}`;
 }
+
+const PDF_KEY_PREFIX = 'pdf:';
+
+/**
+ * Page key for a PDF opened in the WWM viewer: the pdf.js document fingerprint,
+ * so the same file shares annotations across URLs. A new revision of a file
+ * (e.g. arXiv v2) has a different fingerprint and is a different page.
+ */
+export function pdfPageKey(fingerprint: string): string {
+  return PDF_KEY_PREFIX + fingerprint.toLowerCase();
+}
+
+export function isPdfPageKey(pageKey: string): boolean {
+  return pageKey.startsWith(PDF_KEY_PREFIX);
+}

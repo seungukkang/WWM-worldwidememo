@@ -20,8 +20,15 @@ Only when **you create an annotation**, WWM stores:
 | A short excerpt (up to ~400 characters) around the selection | To relocate your annotation if the page changes, and to show you what changed |
 | Your note, chosen style (color / underline / bold), creation and update times | That is the annotation itself |
 | The page URL and title | To know which page the annotation belongs to |
+| For PDFs: the document's fingerprint (an ID computed from the file) | To recognize the same PDF again |
 
 WWM does **not** store full page contents, your browsing history, or anything about pages where you have not created an annotation.
+
+## PDFs
+
+Chrome's built-in PDF viewer cannot be used by extensions, so WWM includes its own PDF viewer (based on the open-source [pdf.js](https://mozilla.github.io/pdf.js/)).
+When you open a PDF in WWM, your browser downloads it directly from the site it came from — the same request Chrome would make — and renders it on your device.
+The PDF itself is not stored by WWM and is never sent anywhere. When you open a PDF in Chrome, WWM only checks locally whether you already have annotations for that PDF's URL.
 
 ## Permissions
 
@@ -74,8 +81,15 @@ WWM은 웹페이지의 텍스트에 하이라이트·밑줄·볼드·메모를 �
 | 선택 영역 주변 약 400자 이내의 짧은 발췌 | 페이지가 바뀌었을 때 주석 위치를 다시 찾고, 무엇이 바뀌었는지 보여주기 위해 |
 | 메모, 스타일(색상/밑줄/볼드), 생성·수정 시각 | 주석 그 자체 |
 | 페이지 URL과 제목 | 주석이 어느 페이지에 속하는지 알기 위해 |
+| PDF의 경우: 문서 fingerprint (파일에서 계산한 식별값) | 같은 PDF를 다시 알아보기 위해 |
 
 페이지 전체 내용, 방문 기록, 주석을 만들지 않은 페이지에 대한 정보는 **저장하지 않습니다.**
+
+## PDF
+
+Chrome 기본 PDF 뷰어에는 확장 프로그램이 동작할 수 없어서, WWM은 자체 PDF 뷰어(오픈소스 [pdf.js](https://mozilla.github.io/pdf.js/) 기반)를 포함하고 있습니다.
+PDF를 WWM으로 열면 브라우저가 원래 사이트에서 직접 파일을 내려받아(Chrome이 보낼 것과 같은 요청) 기기 안에서 화면에 표시합니다.
+WWM은 PDF 파일 자체를 저장하지 않으며 어디에도 전송하지 않습니다. Chrome에서 PDF를 열 때는 해당 PDF 주소에 이미 주석이 있는지 기기 안에서만 확인합니다.
 
 ## 권한
 

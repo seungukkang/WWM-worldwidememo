@@ -22,7 +22,8 @@
     "release": "npm run typecheck && npm run test && npm run build:prod && npm run zip"
   },
   "dependencies": {
-    "approx-string-match": "^2.0.1"
+    "approx-string-match": "^2.0.1",
+    "pdfjs-dist": "^6.4.299"
   },
   "devDependencies": {
     "@types/chrome": "^0.3.7",

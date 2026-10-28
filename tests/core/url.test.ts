@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizePageKey } from '../../src/core/url';
+import { isPdfPageKey, normalizePageKey, pdfPageKey } from '../../src/core/url';
 
 describe('normalizePageKey', () => {
   it('drops tracking params and sorts the rest', () => {
@@ -21,5 +21,16 @@ describe('normalizePageKey', () => {
   it('returns non-http(s) URLs and garbage unchanged', () => {
     expect(normalizePageKey('file:///tmp/a.html')).toBe('file:///tmp/a.html');
     expect(normalizePageKey('not a url')).toBe('not a url');
+  });
+});
+
+describe('pdfPageKey', () => {
+  it('keys PDFs by fingerprint, independent of URL', () => {
+    expect(pdfPageKey('3A9F00C1')).toBe('pdf:3a9f00c1');
+    expect(isPdfPageKey(pdfPageKey('abc'))).toBe(true);
+  });
+
+  it('never collides with web page keys', () => {
+    expect(isPdfPageKey(normalizePageKey('https://arxiv.org/pdf/1706.03762'))).toBe(false);
   });
 });

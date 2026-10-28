@@ -11,7 +11,11 @@ export type BackgroundRequest =
   | { type: 'wwm/upsert'; annotation: Annotation }
   | { type: 'wwm/delete'; pageKey: string; id: string }
   | { type: 'wwm/anchor-report'; pageKey: string; results: Array<{ id: string; anchor: AnchorState }> }
-  | { type: 'wwm/export' };
+  | { type: 'wwm/export' }
+  /** Does any stored PDF page belong to this URL? (auto-open in the WWM viewer) */
+  | { type: 'wwm/pdf-lookup'; url: string }
+  /** Navigate the sender's tab to the WWM PDF viewer for `url`. */
+  | { type: 'wwm/open-pdf'; url: string };
 
 export interface BackgroundResponseMap {
   'wwm/list': { annotations: Annotation[] };
@@ -20,6 +24,8 @@ export interface BackgroundResponseMap {
   'wwm/delete': { ok: boolean };
   'wwm/anchor-report': { ok: true };
   'wwm/export': { pages: PageRecord[] };
+  'wwm/pdf-lookup': { known: boolean };
+  'wwm/open-pdf': { ok: boolean };
 }
 
 export type BackgroundResponse<T extends BackgroundRequest['type']> = BackgroundResponseMap[T];

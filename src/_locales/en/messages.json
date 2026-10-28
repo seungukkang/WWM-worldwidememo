@@ -197,5 +197,57 @@
         "content": "$1"
       }
     }
+  },
+  "pdfPrompt": {
+    "message": "Highlight and take notes on this PDF",
+    "description": "Prompt shown over Chrome's PDF viewer"
+  },
+  "pdfOpenInWwm": {
+    "message": "Open in WWM",
+    "description": "Button: reopen the PDF in the WWM viewer"
+  },
+  "dismiss": {
+    "message": "Dismiss",
+    "description": "Close button title"
+  },
+  "pdfLoading": {
+    "message": "Loading PDF…",
+    "description": "PDF viewer status"
+  },
+  "pdfLoadError": {
+    "message": "Could not open this PDF.",
+    "description": "PDF viewer error"
+  },
+  "pdfOpenNative": {
+    "message": "Open in Chrome's PDF viewer",
+    "description": "PDF viewer header link"
+  },
+  "pdfOutline": {
+    "message": "Table of contents",
+    "description": "PDF viewer toolbar"
+  },
+  "pdfPageNumber": {
+    "message": "Page number",
+    "description": "PDF viewer toolbar"
+  },
+  "pdfZoomIn": {
+    "message": "Zoom in",
+    "description": "PDF viewer toolbar"
+  },
+  "pdfZoomOut": {
+    "message": "Zoom out",
+    "description": "PDF viewer toolbar"
+  },
+  "pdfFitWidth": {
+    "message": "Fit to width",
+    "description": "PDF viewer toolbar"
+  },
+  "pdfDownload": {
+    "message": "Download",
+    "description": "PDF viewer toolbar"
+  },
+  "pdfPrint": {
+    "message": "Print",
+    "description": "PDF viewer toolbar"
   }
 }

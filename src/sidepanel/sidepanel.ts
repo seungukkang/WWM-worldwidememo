@@ -3,9 +3,10 @@
  * JSON export. Reads via background messages; never writes storage directly.
  */
 import { getSelector, type Annotation, type PageRecord } from '../core/types';
-import { normalizePageKey } from '../core/url';
+import { isPdfPageKey, normalizePageKey } from '../core/url';
 import { localizeDocument, t, uiLanguage, type MessageKey } from '../shared/i18n';
-import { sendToBackground, type Broadcast, type ContentRequest } from '../shared/messages';
+import { sendToBackground, type Broadcast, type ContentRequest, type ContentStatus } from '../shared/messages';
+import { pdfViewerUrl } from '../shared/pdf';
 
 const SWATCH: Record<string, string> = {
   yellow: '#ffd600',
@@ -23,11 +24,16 @@ const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) 
 
 let activeTabId: number | undefined;
 let activePageKey = '';
+/** False until the tab itself reported its page key (e.g. the PDF viewer is still loading). */
+let keyFromTab = false;
 
 async function refreshActiveTab(): Promise<void> {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   activeTabId = tab?.id;
-  activePageKey = tab?.url ? normalizePageKey(tab.url) : '';
+  // The tab knows its own page key (a PDF's is its fingerprint, not its URL).
+  const fromTab = await tabPageKey();
+  keyFromTab = fromTab !== undefined;
+  activePageKey = fromTab ?? (tab?.url ? normalizePageKey(tab.url) : '');
   $('page-title').textContent = tab?.title ?? '';
   await renderPage();
 }
@@ -137,7 +143,8 @@ function pageItem(p: PageRecord): HTMLLIElement {
   const count = p.annotations.filter((a) => !a.deletedAt).length;
   meta.textContent = t('pageSummary', count, new Date(p.updatedAt).toLocaleDateString(uiLanguage()));
   li.append(title, meta);
-  li.addEventListener('click', () => void chrome.tabs.create({ url: p.url }));
+  const url = isPdfPageKey(p.pageKey) ? pdfViewerUrl(p.url) : p.url;
+  li.addEventListener('click', () => void chrome.tabs.create({ url }));
   return li;
 }
 
@@ -154,6 +161,18 @@ async function sendToTab(msg: ContentRequest): Promise<void> {
     await chrome.tabs.sendMessage(activeTabId, msg);
   } catch {
     // Content script not present on this tab.
+  }
+}
+
+async function tabPageKey(): Promise<string | undefined> {
+  if (activeTabId === undefined) return undefined;
+  try {
+    const status = (await chrome.tabs.sendMessage(activeTabId, { type: 'wwm/get-status' } satisfies ContentRequest)) as
+      | ContentStatus
+      | undefined;
+    return status?.pageKey || undefined;
+  } catch {
+    return undefined; // No content script (chrome:// pages, Web Store) or still loading.
   }
 }
 
@@ -194,7 +213,9 @@ chrome.tabs.onUpdated.addListener((tabId, info) => {
   if (tabId === activeTabId && (info.url || info.status === 'complete')) void refreshActiveTab();
 });
 chrome.runtime.onMessage.addListener((msg: Broadcast) => {
-  if (msg.type === 'wwm/changed' && msg.pageKey === activePageKey) void renderPage();
+  if (msg.type !== 'wwm/changed') return;
+  if (msg.pageKey === activePageKey) void renderPage();
+  else if (!keyFromTab) void refreshActiveTab();
 });
 
 void refreshActiveTab();

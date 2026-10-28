@@ -7,6 +7,10 @@
  *   4. after the page changes (v1 → v2 at the same URL) it is re-anchored.
  *
  *   5. the UI language follows the browser locale (WWM_LANG=en|ko).
+ *   6. PDFs: a prompt is shown over Chrome's PDF viewer; the WWM viewer renders a text
+ *      layer that can be annotated; annotations persist and the PDF auto-opens next time.
+ *   7. PDF viewer basics: zoom keeps annotations, links (internal + Back, web, mailto),
+ *      page number, outline, download, print.
  *
  * Usage:  npm run build && npm run e2e          (WWM_LANG=ko npm run e2e for Korean)
  * Needs:  playwright + Chromium (`npm i -D playwright && npx playwright install chromium`).
@@ -25,10 +29,25 @@ const { chromium } = await import('playwright');
 const lang = process.env.WWM_LANG ?? 'en';
 const loadCatalog = async (l) => JSON.parse(await readFile(join(root, 'src', '_locales', l, 'messages.json'), 'utf8'));
 
+// A PDF of the v1 article, printed by plain Chromium (no extension).
+const printer = await chromium.launch();
+const printPage = await printer.newPage();
+await printPage.setContent(await readFile(join(fixtures, 'article-v1.html'), 'utf8'));
+const pdfBytes = await printPage.pdf({ format: 'A4' });
+// A two-page PDF with an internal link (to page 2), a web link and a mailto: link.
+await printPage.setContent(`<h1>Intro</h1><p><a href="#refs">See references</a> ·
+  <a href="https://example.com/">example.com</a> · <a href="mailto:author@example.com">author@example.com</a></p>
+  <h1 id="refs" style="break-before: page">References</h1><p>[1] A reference.</p>`);
+const linksPdfBytes = await printPage.pdf({ format: 'A4', outline: true, tagged: true }); // outline needs tagged
+await printer.close();
+
 // Serve one URL whose content we can swap between versions.
 let version = 'article-v1.html';
 const server = createServer(async (req, res) => {
-  if (req.url?.startsWith('/article')) {
+  if (req.url?.startsWith('/paper.pdf') || req.url?.startsWith('/links.pdf')) {
+    res.writeHead(200, { 'content-type': 'application/pdf' });
+    res.end(req.url.startsWith('/paper') ? pdfBytes : linksPdfBytes);
+  } else if (req.url?.startsWith('/article')) {
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
     res.end(await readFile(join(fixtures, version)));
   } else {
@@ -36,7 +55,8 @@ const server = createServer(async (req, res) => {
   }
 });
 await new Promise((r) => server.listen(0, '127.0.0.1', r));
-const url = `http://127.0.0.1:${server.address().port}/article`;
+const origin = `http://127.0.0.1:${server.address().port}`;
+const url = `${origin}/article`;
 
 const results = [];
 const check = (name, ok, detail = '') => {
@@ -131,6 +151,114 @@ try {
     reg.yellow === 1 && a2?.anchor?.status === 'anchored',
     `size=${reg.yellow}, status=${a2?.anchor?.status}/${a2?.anchor?.method}`,
   );
+
+  const extId = new URL(sw.url()).host;
+
+  // ---- PDF -----------------------------------------------------------------
+  const pdfUrl = `${origin}/paper.pdf`;
+  await page.goto(pdfUrl);
+  await page.waitForTimeout(1500);
+  check('PDF prompt over Chrome viewer', await page.evaluate(() => Boolean(document.querySelector('wwm-root'))));
+
+  await page.goto(`chrome-extension://${extId}/pdf/viewer.html?file=${encodeURIComponent(pdfUrl)}`);
+  await page.waitForSelector('.textLayer span', { timeout: 15000 });
+  await page.waitForTimeout(500);
+  const pdfQuote = 'Sampling is slow because it requires hundreds';
+  const selected = await page.evaluate((q) => {
+    // The quote spans several text-layer <span>s: map flat offsets back to nodes.
+    const walker = document.createTreeWalker(document.getElementById('pages'), NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    let text = '';
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      nodes.push([n, text.length]);
+      text += n.data;
+    }
+    const at = (off) => nodes.findLast(([, s]) => s <= off);
+    const i = text.indexOf(q);
+    if (i < 0) return '';
+    const [sn, so] = at(i);
+    const [en, eo] = at(i + q.length);
+    const r = document.createRange();
+    r.setStart(sn, i - so);
+    r.setEnd(en, i + q.length - eo);
+    getSelection().removeAllRanges();
+    getSelection().addRange(r);
+    return getSelection().toString();
+  }, pdfQuote);
+  await sw.evaluate(async () => {
+    const [tab] = await chrome.tabs.query({ active: true });
+    await chrome.tabs.sendMessage(tab.id, { type: 'wwm/command', command: 'highlight' });
+  });
+  await page.waitForTimeout(400);
+  const pdfKeys = Object.keys(await sw.evaluate(() => chrome.storage.local.get(null))).filter((k) =>
+    k.startsWith('wwm:page:pdf:'),
+  );
+  const pdfYellow = () => page.evaluate(() => CSS.highlights.get('wwm-hl-yellow')?.size ?? -1);
+  check(
+    'PDF annotated in WWM viewer',
+    selected === pdfQuote && pdfKeys.length === 1 && (await pdfYellow()) === 1,
+    `selected="${selected}", keys=${pdfKeys.length}`,
+  );
+
+  await page.reload();
+  await page.waitForSelector('.textLayer span');
+  await page.waitForTimeout(800);
+  check('PDF annotation restored after reload', (await pdfYellow()) === 1);
+
+  const hlWidth = () =>
+    page.evaluate(() => [...CSS.highlights.get('wwm-hl-yellow')][0]?.getBoundingClientRect().width ?? 0);
+  const widthBefore = await hlWidth();
+  await page.click('#zoom-in');
+  await page.waitForTimeout(400);
+  const widthAfter = await hlWidth();
+  check(
+    'PDF zoom keeps the annotation attached',
+    (await pdfYellow()) === 1 && widthAfter > widthBefore * 1.05,
+    `width ${Math.round(widthBefore)} → ${Math.round(widthAfter)}, ${await page.textContent('#zoom-level')}`,
+  );
+
+  await page.goto(pdfUrl);
+  await page.waitForURL(/^chrome-extension:\/\//, { timeout: 5000 }).catch(() => undefined);
+  check('annotated PDF auto-opens in WWM viewer', page.url().startsWith(`chrome-extension://${extId}/pdf/`));
+
+  await page.goto(`chrome-extension://${extId}/pdf/viewer.html?file=${encodeURIComponent(`${origin}/links.pdf`)}`);
+  await page.waitForSelector('.textLayer span', { timeout: 15000 });
+  await page.waitForTimeout(300);
+  const links = await page.evaluate(() =>
+    [...document.querySelectorAll('.linkAnnotation > a')].map((a) => ({ href: a.getAttribute('href'), target: a.target })),
+  );
+  check(
+    'PDF links: web (new tab), mailto, internal',
+    links.some((l) => l.href === 'https://example.com/' && l.target === '_blank') &&
+      links.some((l) => l.href === 'mailto:author@example.com') &&
+      links.some((l) => l.href === '#'),
+    JSON.stringify(links),
+  );
+  const internal = page.locator('.linkAnnotation > a[href="#"]').first();
+  await internal.click();
+  await page.waitForTimeout(300);
+  const landed = await page.evaluate(() => {
+    const p2 = document.querySelector('.page[data-page="2"]').getBoundingClientRect();
+    return p2.top < window.innerHeight / 2 && p2.bottom > 0;
+  });
+  check('PDF internal link scrolls to its destination', landed && (await page.inputValue('#page-input')) === '2');
+  await page.evaluate(() => history.back());
+  await page.waitForTimeout(300);
+  check('PDF Back returns to the link', (await page.inputValue('#page-input')) === '1');
+
+  await page.click('#outline-toggle');
+  const outline = await page.locator('#outline .title').allTextContents();
+  check('PDF outline listed', outline.includes('References'), JSON.stringify(outline));
+
+  const [download] = await Promise.all([page.waitForEvent('download', { timeout: 5000 }).catch(() => null), page.click('#download')]);
+  check('PDF download', download?.suggestedFilename() === 'links.pdf', download?.suggestedFilename() ?? 'none');
+
+  await page.evaluate(() => {
+    window.print = () => (window.__printedPages = document.querySelectorAll('#print-pages img').length);
+  });
+  await page.click('#print');
+  await page.waitForFunction(() => window.__printedPages !== undefined, null, { timeout: 15000 }).catch(() => undefined);
+  check('PDF print renders every page', (await page.evaluate(() => window.__printedPages)) === 2);
 
   await page.screenshot({ path: join(tmpdir(), 'wwm-e2e.png') });
   console.log(`screenshot: ${join(tmpdir(), 'wwm-e2e.png')}`);

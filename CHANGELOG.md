@@ -9,6 +9,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 First beta release (Chrome Web Store, unlisted).
 
 ### Added
+- PDF support: a bundled pdf.js viewer with the same highlights, notes and re-anchoring. The viewer keeps the basics of Chrome's: links (references and other internal links jump to their target and Back returns, web links open in a new tab, mailto: opens your mail app), zoom (buttons, Ctrl/⌘ +/−/0, Ctrl+wheel; annotations stay attached), page number and go-to-page, table of contents, download and print. Chrome's PDF viewer shows an "Open in WWM" prompt; PDFs you have annotated reopen in WWM automatically.
 - English / Korean UI (`_locales`), following the browser language.
 - Privacy policy (`PRIVACY.md`, en/ko), store screenshots & promo tiles generated from the real extension.
 - CI workflow (type-check, tests, production build).

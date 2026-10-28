@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WWM PDF</title>
+    <link rel="icon" href="../icons/icon-32.png" />
+    <link rel="stylesheet" href="../content.css" />
+    <link rel="stylesheet" href="viewer.css" />
+  </head>
+  <body>
+    <header class="bar">
+      <button id="outline-toggle" class="icon" data-i18n-title="pdfOutline" hidden>
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14" /></svg>
+      </button>
+      <img class="logo" src="../icons/icon-32.png" alt="" width="20" height="20" />
+      <span id="title" class="title"></span>
+
+      <div class="group">
+        <input id="page-input" class="page-input" inputmode="numeric" autocomplete="off" data-i18n-title="pdfPageNumber" />
+        <span class="muted">/ <span id="page-count">–</span></span>
+      </div>
+
+      <div class="group">
+        <button id="zoom-out" class="icon" data-i18n-title="pdfZoomOut">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 10h10" /></svg>
+        </button>
+        <span id="zoom-level" class="zoom-level">100%</span>
+        <button id="zoom-in" class="icon" data-i18n-title="pdfZoomIn">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 10h10M10 5v10" /></svg>
+        </button>
+        <button id="zoom-fit" class="icon" data-i18n-title="pdfFitWidth">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 10h14M6 7l-3 3 3 3M14 7l3 3-3 3" /></svg>
+        </button>
+      </div>
+
+      <div class="group">
+        <button id="download" class="icon" data-i18n-title="pdfDownload">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v10M6 9l4 4 4-4M4 16h12" /></svg>
+        </button>
+        <button id="print" class="icon" data-i18n-title="pdfPrint">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 8V3h8v5M6 14H4V8h12v6h-2M6 12h8v5H6z" /></svg>
+        </button>
+        <a id="native" class="native" data-i18n="pdfOpenNative">Open in Chrome's PDF viewer</a>
+      </div>
+    </header>
+    <aside id="outline" class="outline" hidden></aside>
+    <p id="status" class="status" data-i18n="pdfLoading">Loading PDF…</p>
+    <main id="pages" class="pages"></main>
+    <script type="module" src="viewer.js"></script>
+  </body>
+</html>

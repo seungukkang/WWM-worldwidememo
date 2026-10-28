@@ -7,8 +7,10 @@
  */
 import { AnnotationRepository, type KVStore } from '../core/repository';
 import type { AnchorState } from '../core/types';
+import { isPdfPageKey, normalizePageKey } from '../core/url';
 import { t } from '../shared/i18n';
 import type { BackgroundRequest, Broadcast, ContentRequest } from '../shared/messages';
+import { pdfViewerUrl } from '../shared/pdf';
 
 class ChromeLocalKV implements KVStore {
   async get<T>(key: string): Promise<T | undefined> {
@@ -94,6 +96,23 @@ async function handle(msg: BackgroundRequest, sender: chrome.runtime.MessageSend
 
     case 'wwm/export':
       return { pages: await repo.exportAll() };
+
+    case 'wwm/pdf-lookup': {
+      const key = normalizePageKey(msg.url);
+      const pages = await repo.listPages();
+      const known = pages.some(
+        (p) => isPdfPageKey(p.pageKey) && normalizePageKey(p.url) === key && p.annotations.some((a) => !a.deletedAt),
+      );
+      return { known };
+    }
+
+    case 'wwm/open-pdf': {
+      const tabId = sender.tab?.id;
+      if (tabId === undefined || !/^https?:/i.test(msg.url)) return { ok: false };
+      await chrome.tabs.update(tabId, { url: pdfViewerUrl(msg.url) });
+      return { ok: true };
+    }
+
   }
 }
 
