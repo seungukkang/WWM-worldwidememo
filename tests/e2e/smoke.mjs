@@ -389,7 +389,9 @@ try {
   const articleTabId = await sw.evaluate(async (o) => (await chrome.tabs.query({ url: `${o}/*` }))[0].id, origin);
   const barPanel = await context.newPage();
   await barPanel.addInitScript((id) => {
-    chrome.tabs.query = async () => [await chrome.tabs.get(id)];
+    // The panel's "active tab" is the article; other tab queries stay real.
+    const query = chrome.tabs.query.bind(chrome.tabs);
+    chrome.tabs.query = async (info) => (info?.active ? [await chrome.tabs.get(id)] : query(info));
   }, articleTabId);
   await barPanel.goto(`chrome-extension://${extId}/sidepanel/index.html`);
   await barPanel.waitForSelector('#stylebar button');
@@ -454,6 +456,20 @@ try {
     renamed?.includes('Reading') && chipsAfterDelete === 0 && labelRestored === 1 && exported.labels?.length === 1 && meta?.schemaVersion === 2,
     `renamed=${renamed}, afterDelete=${chipsAfterDelete}, restored=${labelRestored}, schema=${meta?.schemaVersion}`,
   );
+  // Clicking a page that is already open in this window switches to its tab.
+  const other = await context.newPage();
+  await other.goto('about:blank');
+  const pagesBefore = context.pages().length;
+  await barPanel.locator('#all-list .item .quote').first().click();
+  await barPanel.waitForTimeout(400);
+  const articleActive = await sw.evaluate(async (id) => (await chrome.tabs.get(id)).active, articleTabId);
+  check(
+    'library: an already-open page is switched to, not opened again',
+    articleActive && context.pages().length === pagesBefore,
+    `active=${articleActive}, tabs ${pagesBefore} → ${context.pages().length}`,
+  );
+  await other.close();
+
   await barPanel.screenshot({ path: join(tmpdir(), 'wwm-library.png') });
 
   await barPanel.close();
@@ -521,6 +537,23 @@ try {
   await page.waitForSelector('.textLayer span');
   await page.waitForTimeout(800);
   check('PDF annotation restored after reload', (await pdfYellow()) === 1);
+
+  // The All tab finds an open PDF by asking WWM viewer tabs (PDFs are keyed by fingerprint).
+  const pdfListPanel = await context.newPage();
+  await pdfListPanel.goto(`chrome-extension://${extId}/sidepanel/index.html`);
+  await pdfListPanel.click('[role="tab"][data-tab="all"]');
+  await pdfListPanel.waitForSelector('#all-list .badge.pdf');
+  const tabsBefore = context.pages().length;
+  await pdfListPanel.locator('#all-list .item', { has: pdfListPanel.locator('.badge.pdf') }).locator('.quote').click();
+  await pdfListPanel.waitForTimeout(500);
+  const viewerActive = await sw.evaluate(async (id) => (await chrome.tabs.get(id)).active, viewerTabId);
+  check(
+    'library: an open PDF is switched to, not opened again',
+    viewerActive && context.pages().length === tabsBefore,
+    `active=${viewerActive}, tabs ${tabsBefore} → ${context.pages().length}`,
+  );
+  await pdfListPanel.close();
+  await page.bringToFront();
 
   const hlWidth = () =>
     page.evaluate(() => [...CSS.highlights.get('wwm-hl-yellow')][0]?.getBoundingClientRect().width ?? 0);

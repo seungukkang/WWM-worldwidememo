@@ -5,9 +5,9 @@
  */
 import { countPages, filterPages, labelsOfPage, liveAnnotations, pageMatchesFilter, type LibraryFilter } from '../core/library';
 import type { Label, PageRecord } from '../core/types';
-import { isPdfPageKey } from '../core/url';
+import { isPdfPageKey, normalizePageKey } from '../core/url';
 import { t, uiLanguage, type MessageKey } from '../shared/i18n';
-import { sendToBackground } from '../shared/messages';
+import { sendToBackground, type ContentRequest, type ContentStatus } from '../shared/messages';
 import { pdfViewerUrl } from '../shared/pdf';
 import { createLabel, labelDot, labelManager, labelMenu, labelTag } from './labels';
 
@@ -182,9 +182,40 @@ function pageItem(p: PageRecord, labels: Label[]): HTMLLIElement {
   li.append(meta);
   if (menuFor === p.pageKey) li.append(labelMenu(p.pageKey, labels, p.labelIds ?? []));
 
-  const url = isPdfPageKey(p.pageKey) ? pdfViewerUrl(p.url) : p.url;
-  li.addEventListener('click', () => void chrome.tabs.create({ url }));
+  li.addEventListener('click', () => void openPage(p));
   return li;
+}
+
+/** Switch to the page if it is already open in this window; otherwise open it in a new tab. */
+async function openPage(p: PageRecord): Promise<void> {
+  const open = await findOpenTab(p.pageKey);
+  if (open?.id !== undefined) {
+    await chrome.tabs.update(open.id, { active: true });
+    return;
+  }
+  await chrome.tabs.create({ url: isPdfPageKey(p.pageKey) ? pdfViewerUrl(p.url) : p.url });
+}
+
+async function findOpenTab(pageKey: string): Promise<chrome.tabs.Tab | undefined> {
+  const tabs = await chrome.tabs.query({ currentWindow: true });
+  if (!isPdfPageKey(pageKey)) {
+    // Host permissions let us read http(s) tab URLs; compare them as page keys.
+    return tabs.find((tab) => tab.url !== undefined && normalizePageKey(tab.url) === pageKey);
+  }
+  // A PDF is identified by its fingerprint, so ask WWM viewer tabs for their page key.
+  const viewer = chrome.runtime.getURL('pdf/viewer.html');
+  for (const tab of tabs) {
+    if (tab.id === undefined || (tab.url !== undefined && !tab.url.startsWith(viewer))) continue;
+    try {
+      const status = (await chrome.tabs.sendMessage(tab.id, { type: 'wwm/get-status' } satisfies ContentRequest)) as
+        | ContentStatus
+        | undefined;
+      if (status?.pageKey === pageKey) return tab;
+    } catch {
+      // Not a WWM page.
+    }
+  }
+  return undefined;
 }
 
 function emptyItem(text: string): HTMLLIElement {

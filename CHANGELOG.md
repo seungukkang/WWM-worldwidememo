@@ -11,6 +11,7 @@ First public beta (Chrome Web Store, unlisted).
 ### Added
 - Labels for annotated pages: create them from the current page or the All tab, put several on a page, and filter the All tab by label chips. Rename, recolor, reorder and delete labels (delete can be undone).
 - Search in the All tab across page titles, addresses, quotes and notes, plus built-in filters: with notes, needs attention, PDF.
+- Clicking a page in the All tab switches to it if it is already open in the window, instead of opening it again.
 - JSON export includes labels (format version 2).
 - The annotation popover and the note editor can be dragged by their ⋮⋮ handle, like the selection toolbar; a dragged popover stays put when you change the style.
 
