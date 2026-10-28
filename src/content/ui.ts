@@ -3,6 +3,7 @@
  * closed Shadow DOM so page CSS cannot leak in and ours cannot leak out.
  */
 import { IGNORE_ATTR } from '../core/text-index';
+import { toggleStyle, type StyleChange } from '../core/style';
 import type { Annotation, AnnotationStyle, HighlightColor } from '../core/types';
 import { t, uiLanguage, type MessageKey } from '../shared/i18n';
 
@@ -45,6 +46,13 @@ textarea {
 .primary:hover { background: #ffe14d; }
 .note { max-width: 300px; white-space: pre-wrap; word-break: break-word; padding: 2px 4px; }
 .muted { opacity: .65; font-size: 12px; margin-right: auto; }
+.styles { display: flex; align-items: center; gap: 4px; }
+button.on { background: rgba(255,255,255,.18); box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.85); }
+button:disabled { cursor: default; opacity: .45; }
+.toast {
+  top: auto; left: 50%; bottom: 24px; transform: translateX(-50%);
+  padding: 6px 6px 6px 14px; gap: 10px;
+}
 `;
 
 export interface UiHandlers {
@@ -54,6 +62,7 @@ export interface UiHandlers {
   onEdit(id: string): void;
   onDelete(id: string): void;
   onConfirm(id: string): void;
+  onChangeStyle(id: string, change: StyleChange): void;
 }
 
 export class WwmUi {
@@ -63,6 +72,9 @@ export class WwmUi {
   private readonly editor: HTMLDivElement;
   private readonly textarea: HTMLTextAreaElement;
   private readonly popover: HTMLDivElement;
+  private readonly toast: HTMLDivElement;
+  private popoverRect: DOMRect | null = null;
+  private toastTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor(private readonly h: UiHandlers) {
     this.host = document.createElement('wwm-root');
@@ -107,6 +119,9 @@ export class WwmUi {
     this.popover = this.panel('popover');
     this.popover.classList.add('editor');
 
+    this.toast = this.panel('toast');
+    this.toast.classList.add('toast');
+
     // Keep the page selection alive while clicking our buttons.
     this.root.addEventListener('mousedown', (e) => {
       if (!(e.target instanceof HTMLTextAreaElement)) e.preventDefault();
@@ -133,7 +148,8 @@ export class WwmUi {
 
   showPopover(rect: DOMRect, a: Annotation): void {
     this.hideAll();
-    this.popover.replaceChildren();
+    this.popoverRect = rect;
+    this.popover.replaceChildren(this.styleRow(a));
     if (a.note) {
       const note = document.createElement('div');
       note.className = 'note';
@@ -151,12 +167,41 @@ export class WwmUi {
       ok.classList.add('primary');
       row.append(ok);
     }
+    const noteLabel = a.note ? t('editNote') : t('addNote');
     row.append(
-      this.button(t('editNote'), t('editNoteTitle'), () => this.h.onEdit(a.id)),
+      this.button(noteLabel, noteLabel, () => this.h.onEdit(a.id)),
       this.button(t('delete'), t('deleteTitle'), () => this.h.onDelete(a.id)),
     );
     this.popover.append(row);
     this.place(this.popover, rect);
+  }
+
+  /** Re-render an open popover after its annotation changed (e.g. a style edit). */
+  refreshPopover(a: Annotation): void {
+    if (!this.popover.hidden && this.popoverRect) this.showPopover(this.popoverRect, a);
+  }
+
+  /** Brief message at the bottom of the viewport, with an optional action (e.g. Undo). */
+  showToast(message: string, action?: { label: string; run: () => void }, ms = 6000): void {
+    clearTimeout(this.toastTimer);
+    const text = document.createElement('span');
+    text.textContent = message;
+    this.toast.replaceChildren(text);
+    if (action) {
+      const b = this.button(action.label, action.label, () => {
+        this.hideToast();
+        action.run();
+      });
+      b.classList.add('primary');
+      this.toast.append(b);
+    }
+    this.toast.hidden = false;
+    this.toastTimer = setTimeout(() => this.hideToast(), ms);
+  }
+
+  hideToast(): void {
+    clearTimeout(this.toastTimer);
+    this.toast.hidden = true;
   }
 
   hideAll(): void {
@@ -170,6 +215,41 @@ export class WwmUi {
   }
 
   // -- helpers --------------------------------------------------------------
+
+  /** Same controls as the creation toolbar; the current style is shown pressed. */
+  private styleRow(a: Annotation): HTMLDivElement {
+    const row = document.createElement('div');
+    row.className = 'styles';
+    const toggle = (b: HTMLButtonElement, on: boolean, change: StyleChange): HTMLButtonElement => {
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-pressed', String(on));
+      if (toggleStyle(a.style, change, Boolean(a.note)) === null) {
+        b.disabled = true;
+        b.title = t('styleKeepOne');
+      }
+      return b;
+    };
+    for (const c of COLORS) {
+      const b = this.button('', t('toolbarHighlight', t(c.label)), () => this.h.onChangeStyle(a.id, { highlight: c.id }));
+      const dot = document.createElement('span');
+      dot.className = 'dot';
+      dot.style.background = c.css;
+      b.append(dot);
+      row.append(toggle(b, a.style.highlight === c.id, { highlight: c.id }));
+    }
+    row.append(this.sep());
+    const u = this.button('U', t('toolbarUnderline'), () => this.h.onChangeStyle(a.id, { underline: true }));
+    u.classList.add('u');
+    row.append(
+      toggle(u, Boolean(a.style.underline), { underline: true }),
+      toggle(
+        this.button('B', t('toolbarBold'), () => this.h.onChangeStyle(a.id, { bold: true })),
+        Boolean(a.style.bold),
+        { bold: true },
+      ),
+    );
+    return row;
+  }
 
   private panel(name: string): HTMLDivElement {
     const d = document.createElement('div');

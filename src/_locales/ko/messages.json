@@ -74,9 +74,6 @@
     "message": "이 위치가 맞음"
   },
   "editNote": {
-    "message": "메모"
-  },
-  "editNoteTitle": {
     "message": "메모 편집"
   },
   "delete": {
@@ -205,5 +202,67 @@
   "pdfPrint": {
     "message": "인쇄",
     "description": "PDF viewer toolbar"
+  },
+  "addNote": {
+    "message": "메모 추가",
+    "description": "Popover: add a note to an annotation without one"
+  },
+  "styleKeepOne": {
+    "message": "스타일이나 메모가 하나는 있어야 합니다. 지우려면 삭제를 누르세요",
+    "description": "Disabled style button tooltip"
+  },
+  "deletedToast": {
+    "message": "주석을 삭제했습니다",
+    "description": "Toast after deleting"
+  },
+  "undo": {
+    "message": "실행 취소",
+    "description": "Toast action"
+  },
+  "historyCreate": {
+    "message": "주석 만들기",
+    "description": "Side panel undo/redo"
+  },
+  "historyDelete": {
+    "message": "주석 삭제",
+    "description": "Side panel undo/redo"
+  },
+  "historyStyle": {
+    "message": "스타일 변경",
+    "description": "Side panel undo/redo"
+  },
+  "historyNote": {
+    "message": "메모 편집",
+    "description": "Side panel undo/redo"
+  },
+  "historyConfirm": {
+    "message": "위치 확인",
+    "description": "Side panel undo/redo"
+  },
+  "undoNothing": {
+    "message": "되돌릴 작업이 없습니다",
+    "description": "Side panel undo/redo"
+  },
+  "redoNothing": {
+    "message": "다시 실행할 작업이 없습니다",
+    "description": "Side panel undo/redo"
+  },
+  "undoAction": {
+    "message": "실행 취소: $action$ (⌘Z)",
+    "description": "Undo button tooltip",
+    "placeholders": {
+      "action": {
+        "content": "$1"
+      }
+    }
+  },
+  "redoAction": {
+    "message": "다시 실행: $action$ (⇧⌘Z)",
+    "description": "Redo button tooltip",
+    "placeholders": {
+      "action": {
+        "content": "$1"
+      }
+    }
   }
 }

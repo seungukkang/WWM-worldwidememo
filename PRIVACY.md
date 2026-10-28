@@ -21,6 +21,7 @@ Only when **you create an annotation**, WWM stores:
 | Your note, chosen style (color / underline / bold), creation and update times | That is the annotation itself |
 | The page URL and title | To know which page the annotation belongs to |
 | For PDFs: the document's fingerprint (an ID computed from the file) | To recognize the same PDF again |
+| A short undo history of your edits on each page (`chrome.storage.session`, cleared when you close the browser) | So you can undo / redo your edits |
 
 WWM does **not** store full page contents, your browsing history, or anything about pages where you have not created an annotation.
 
@@ -82,6 +83,7 @@ WWM은 웹페이지의 텍스트에 하이라이트·밑줄·볼드·메모를 �
 | 메모, 스타일(색상/밑줄/볼드), 생성·수정 시각 | 주석 그 자체 |
 | 페이지 URL과 제목 | 주석이 어느 페이지에 속하는지 알기 위해 |
 | PDF의 경우: 문서 fingerprint (파일에서 계산한 식별값) | 같은 PDF를 다시 알아보기 위해 |
+| 페이지별 최근 편집 기록 (`chrome.storage.session`, 브라우저를 닫으면 삭제) | 실행 취소 / 다시 실행을 위해 |
 
 페이지 전체 내용, 방문 기록, 주석을 만들지 않은 페이지에 대한 정보는 **저장하지 않습니다.**
 

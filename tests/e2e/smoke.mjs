@@ -9,6 +9,8 @@
  *   5. the UI language follows the browser locale (WWM_LANG=en|ko).
  *   6. PDFs: a prompt is shown over Chrome's PDF viewer; the WWM viewer renders a text
  *      layer that can be annotated; annotations persist and the PDF auto-opens next time.
+ *   6b. editing: the popover changes an annotation's style; delete can be undone;
+ *       the side panel's undo/redo restores an overwritten note.
  *   7. PDF viewer basics: zoom keeps annotations, links (internal + Back, web, mailto),
  *      page number, outline, download, print.
  *
@@ -57,6 +59,29 @@ const server = createServer(async (req, res) => {
 await new Promise((r) => server.listen(0, '127.0.0.1', r));
 const origin = `http://127.0.0.1:${server.address().port}`;
 const url = `${origin}/article`;
+
+/**
+ * Click a button inside WWM's closed shadow root. Page scripts cannot reach it,
+ * so locate it through the DevTools protocol (pierce) and click with the mouse.
+ */
+async function clickInShadow(page, selector, index = 0) {
+  const cdp = await page.context().newCDPSession(page);
+  try {
+    const { root } = await cdp.send('DOM.getDocument', { depth: -1, pierce: true });
+    const find = (n) => (n.localName === 'wwm-root' ? n : (n.children ?? []).map(find).find(Boolean));
+    const host = find(root);
+    const shadow = host?.shadowRoots?.[0];
+    if (!shadow) throw new Error('WWM shadow root not found');
+    const { nodeIds } = await cdp.send('DOM.querySelectorAll', { nodeId: shadow.nodeId, selector });
+    const nodeId = index < 0 ? nodeIds.at(index) : nodeIds[index];
+    if (!nodeId) throw new Error(`no element for ${selector} [${index}]`);
+    const { model } = await cdp.send('DOM.getBoxModel', { nodeId });
+    const [x1, y1, , , x3, y3] = model.content;
+    await page.mouse.click((x1 + x3) / 2, (y1 + y3) / 2);
+  } finally {
+    await cdp.detach();
+  }
+}
 
 const results = [];
 const check = (name, ok, detail = '') => {
@@ -152,7 +177,87 @@ try {
     `size=${reg.yellow}, status=${a2?.anchor?.status}/${a2?.anchor?.method}`,
   );
 
+  // ---- editing ---------------------------------------------------------------
+  const layerSizes = () =>
+    page.evaluate(() => ({
+      yellow: CSS.highlights.get('wwm-hl-yellow')?.size ?? -1,
+      blue: CSS.highlights.get('wwm-hl-blue')?.size ?? -1,
+    }));
+  const clickAnnotation = async () => {
+    const at = await page.evaluate(() => {
+      const range = [...CSS.highlights.get('wwm-hl-yellow'), ...CSS.highlights.get('wwm-hl-blue')][0];
+      const r = range.getClientRects()[0];
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+    });
+    await page.mouse.click(at.x, at.y);
+    await page.waitForTimeout(200);
+  };
+  const storedAnnotation = async () =>
+    (await sw.evaluate(() => chrome.storage.local.get(null)))[`wwm:page:${url}`]?.annotations[0];
+
+  await clickAnnotation();
+  await clickInShadow(page, '[data-name="popover"] .styles button', 2); // blue
+  await page.waitForTimeout(300);
+  let sizes = await layerSizes();
+  check(
+    'popover changes the highlight color',
+    sizes.blue === 1 && sizes.yellow === 0 && (await storedAnnotation())?.style.highlight === 'blue',
+    JSON.stringify(sizes),
+  );
+  await page.reload();
+  await page.waitForTimeout(700);
+  check('changed color persists after reload', (await layerSizes()).blue === 1);
+
+  await clickAnnotation();
+  await clickInShadow(page, '[data-name="popover"] .row button', -1); // Delete
+  await page.waitForTimeout(300);
+  const deleted = (await layerSizes()).blue === 0 && Boolean((await storedAnnotation())?.deletedAt);
+  await clickInShadow(page, '[data-name="toast"] button'); // Undo
+  await page.waitForTimeout(300);
+  const restored = await storedAnnotation();
+  check(
+    'delete can be undone',
+    deleted && (await layerSizes()).blue === 1 && restored && !restored.deletedAt,
+    `deleted=${deleted}, restored deletedAt=${restored?.deletedAt}`,
+  );
+
+  // Undo/redo from the side panel (opened as a tab; same messages as the panel buttons).
   const extId = new URL(sw.url()).host;
+  const panel = await context.newPage();
+  await panel.goto(`chrome-extension://${extId}/sidepanel/index.html`);
+  const panelStep = (type) =>
+    panel.evaluate(
+      async ({ type, pageKey, origin }) => {
+        const res = await chrome.runtime.sendMessage({ type, pageKey });
+        const [tab] = await chrome.tabs.query({ url: `${origin}/*` });
+        await chrome.tabs.sendMessage(tab.id, { type: 'wwm/refresh' });
+        return res.ok;
+      },
+      { type, pageKey: url, origin },
+    );
+  const writeNote = async (text) => {
+    await page.bringToFront();
+    await clickAnnotation();
+    await clickInShadow(page, '[data-name="popover"] .row button', -2); // Add / Edit note
+    await page.keyboard.press('ControlOrMeta+a');
+    await page.keyboard.type(text);
+    await page.keyboard.press('ControlOrMeta+Enter');
+    await page.waitForTimeout(300);
+  };
+  await writeNote('first thought');
+  await writeNote('rewritten');
+  const noteBefore = (await storedAnnotation())?.note;
+  const undone = await panelStep('wwm/undo');
+  await page.waitForTimeout(300);
+  const noteUndone = (await storedAnnotation())?.note;
+  const redone = await panelStep('wwm/redo');
+  await page.waitForTimeout(300);
+  check(
+    'side panel undo restores an overwritten note, redo reapplies',
+    noteBefore === 'rewritten' && undone && noteUndone === 'first thought' && redone && (await storedAnnotation())?.note === 'rewritten',
+    `${noteBefore} → ${noteUndone} → ${(await storedAnnotation())?.note}`,
+  );
+  await panel.close();
 
   // ---- PDF -----------------------------------------------------------------
   const pdfUrl = `${origin}/paper.pdf`;

@@ -36,6 +36,14 @@ body {
 }
 .top h1 { font-size: 14px; margin: 0; flex: 1; }
 .tabs { display: flex; gap: 2px; }
+.history { display: flex; gap: 2px; }
+.icon {
+  display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; padding: 0;
+  border: 1px solid transparent; border-radius: 6px; background: none; color: inherit; cursor: pointer;
+}
+.icon:hover:not(:disabled) { border-color: var(--line); }
+.icon:disabled { opacity: .35; cursor: default; }
+.icon svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .tabs button, .bottom button, .item button {
   font: inherit; color: inherit; background: none; border: 1px solid var(--line);
   border-radius: 6px; padding: 3px 8px; cursor: pointer;

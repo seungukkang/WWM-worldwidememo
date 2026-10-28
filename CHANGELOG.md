@@ -18,6 +18,11 @@ First beta release (Chrome Web Store, unlisted).
 - Rendering with the CSS Custom Highlight API (4 highlight colors, underline, bold, notes).
 - Re-anchoring regression fixtures (v1 → v2 page pairs) and an e2e smoke test.
 
+### Added (editing)
+- Click an annotation to change it: switch or remove the highlight color and toggle underline/bold (combinations allowed); "Add note" / "Edit note".
+- Deleting an annotation shows an "Undo" toast.
+- Undo / redo in the side panel (↶ ↷, or ⌘Z / ⇧⌘Z while the panel has focus) for your edits on the current page: create, delete, style, note (recover an overwritten note) and confirm position. Kept until the browser closes.
+
 ### Changed
 - Re-anchoring follows long highlights through typical edits (a few words replaced, a phrase added) automatically when the surrounding text is unchanged.
 - Short highlights (a word or short phrase) are never moved automatically: they are restored only where their neighbouring text confirms it, otherwise you are asked or they are kept under "not found". Fixes highlights jumping between messages in chat apps.

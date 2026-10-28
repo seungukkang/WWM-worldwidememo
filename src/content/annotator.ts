@@ -7,7 +7,10 @@ import { anchorSelectors } from '../core/anchor';
 import { createAnnotation } from '../core/factory';
 import { describeRange } from '../core/selectors';
 import { buildTextIndex, offsetsToRange, type TextIndex } from '../core/text-index';
+import type { HistoryAction } from '../core/history';
+import { hasVisibleStyle, toggleStyle, type StyleChange } from '../core/style';
 import type { AnchorState, Annotation, AnnotationStyle } from '../core/types';
+import { t } from '../shared/i18n';
 import { sendToBackground, type ContentRequest, type ContentStatus } from '../shared/messages';
 import { HighlightRenderer, isSupported, type RenderEntry } from './renderer';
 import { WwmUi, type UiHandlers } from './ui';
@@ -51,6 +54,7 @@ const uiHandlers: UiHandlers = {
   },
   onDelete: (id) => void remove(id),
   onConfirm: (id) => void confirmPosition(id),
+  onChangeStyle: (id, change) => void changeStyle(id, change),
 };
 
 function textIndex(): TextIndex {
@@ -122,7 +126,7 @@ async function createFromPending(style: AnnotationStyle, note?: string): Promise
     style,
     ...(note !== undefined ? { note } : {}),
   });
-  const { annotation } = await sendToBackground({ type: 'wwm/upsert', annotation: draft });
+  const { annotation } = await sendToBackground({ type: 'wwm/upsert', annotation: draft, action: 'create' });
   annotations.push(annotation);
   window.getSelection()?.removeAllRanges();
   pendingRange = null;
@@ -138,18 +142,40 @@ async function saveNote(text: string): Promise<void> {
     const updated: Annotation = { ...a };
     if (text.trim()) updated.note = text;
     else delete updated.note;
-    await persist(updated);
-  } else {
+    // Clearing the note of a note-only annotation would leave nothing visible.
+    if (!updated.note && !hasVisibleStyle(updated.style)) {
+      await remove(a.id);
+      return;
+    }
+    await persist(updated, 'note');
+  } else if (text.trim()) {
     await createFromPending({}, text);
   }
   ui.hideAll();
 }
 
+async function changeStyle(id: string, change: StyleChange): Promise<void> {
+  const a = annotations.find((x) => x.id === id);
+  const style = a && toggleStyle(a.style, change, Boolean(a.note));
+  if (!a || !style) return;
+  await persist({ ...a, style }, 'style');
+  const updated = annotations.find((x) => x.id === id);
+  if (updated) ui.refreshPopover({ ...updated, anchor: states.get(id) ?? updated.anchor });
+}
+
 async function remove(id: string): Promise<void> {
+  const removed = annotations.find((a) => a.id === id);
   await sendToBackground({ type: 'wwm/delete', pageKey, id });
   annotations = annotations.filter((a) => a.id !== id);
   ui.hideAll();
   anchorAll();
+  if (removed) ui.showToast(t('deletedToast'), { label: t('undo'), run: () => void undoDelete(id) });
+}
+
+/** The toast's Undo goes through the page history, so the side panel's undo/redo stays consistent. */
+async function undoDelete(id: string): Promise<void> {
+  const { ok } = await sendToBackground({ type: 'wwm/undo', pageKey, expectId: id });
+  if (ok) await load();
 }
 
 /** User confirms a needs-review anchor: the current location becomes canonical. */
@@ -163,12 +189,12 @@ async function confirmPosition(id: string): Promise<void> {
     ...a,
     target: { selectors: target.selectors, context: target.context },
     anchor: { status: 'anchored', method: 'manual', confidence: 1, checkedAt: new Date().toISOString() },
-  });
+  }, 'confirm');
   ui.hideAll();
 }
 
-async function persist(a: Annotation): Promise<void> {
-  const { annotation } = await sendToBackground({ type: 'wwm/upsert', annotation: a });
+async function persist(a: Annotation, action: HistoryAction): Promise<void> {
+  const { annotation } = await sendToBackground({ type: 'wwm/upsert', annotation: a, action });
   annotations = annotations.map((x) => (x.id === annotation.id ? annotation : x));
   anchorAll();
 }

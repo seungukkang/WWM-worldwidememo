@@ -10,6 +10,14 @@
     <header class="top">
       <img src="../icons/icon-32.png" alt="" width="20" height="20" />
       <h1>WorldWideMemo</h1>
+      <div class="history">
+        <button id="undo" class="icon" disabled>
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8 5L4 9l4 4M4 9h8a4 4 0 0 1 0 8h-2" /></svg>
+        </button>
+        <button id="redo" class="icon" disabled>
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M12 5l4 4-4 4M16 9H8a4 4 0 0 0 0 8h2" /></svg>
+        </button>
+      </div>
       <nav class="tabs" role="tablist">
         <button role="tab" data-tab="page" aria-selected="true" data-i18n="tabThisPage">This page</button>
         <button role="tab" data-tab="all" aria-selected="false" data-i18n="tabAll">All</button>

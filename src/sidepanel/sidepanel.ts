@@ -2,6 +2,7 @@
  * Side panel: per-page annotation list (with anchor status), all-pages list,
  * JSON export. Reads via background messages; never writes storage directly.
  */
+import type { HistoryAction } from '../core/history';
 import { getSelector, type Annotation, type PageRecord } from '../core/types';
 import { isPdfPageKey, normalizePageKey } from '../core/url';
 import { localizeDocument, t, uiLanguage, type MessageKey } from '../shared/i18n';
@@ -18,6 +19,14 @@ const STATUS_LABEL: Record<string, MessageKey> = {
   moved: 'badgeMoved',
   'needs-review': 'badgeNeedsReview',
   orphaned: 'badgeOrphaned',
+};
+
+const HISTORY_LABEL: Record<HistoryAction, MessageKey> = {
+  create: 'historyCreate',
+  delete: 'historyDelete',
+  style: 'historyStyle',
+  note: 'historyNote',
+  confirm: 'historyConfirm',
 };
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
@@ -43,6 +52,7 @@ async function renderPage(): Promise<void> {
   const orphanList = $<HTMLUListElement>('orphan-list');
   list.replaceChildren();
   orphanList.replaceChildren();
+  void renderHistory();
   if (!activePageKey) return;
 
   const { annotations } = await sendToBackground({ type: 'wwm/list', pageKey: activePageKey });
@@ -66,6 +76,25 @@ async function renderPage(): Promise<void> {
   if (review > 0) parts.push(t('bannerReview', review));
   if (orphans.length > 0) parts.push(t('bannerMissing', orphans.length));
   banner.textContent = attention === 0 ? '' : `${t('bannerUpdated')} — ${parts.join(', ')}`;
+}
+
+async function renderHistory(): Promise<void> {
+  const state = activePageKey ? await sendToBackground({ type: 'wwm/history', pageKey: activePageKey }) : {};
+  const set = (id: string, action: HistoryAction | undefined, withAction: MessageKey, none: MessageKey): void => {
+    const b = $<HTMLButtonElement>(id);
+    b.disabled = action === undefined;
+    b.title = action ? t(withAction, t(HISTORY_LABEL[action])) : t(none);
+    b.setAttribute('aria-label', b.title);
+  };
+  set('undo', state.undo, 'undoAction', 'undoNothing');
+  set('redo', state.redo, 'redoAction', 'redoNothing');
+}
+
+/** Undo/redo the current page's last edit, then let the page re-render. */
+async function stepHistory(type: 'wwm/undo' | 'wwm/redo'): Promise<void> {
+  if (!activePageKey) return;
+  const { ok } = await sendToBackground({ type, pageKey: activePageKey });
+  if (ok) await sendToTab({ type: 'wwm/refresh' });
 }
 
 async function renderAll(): Promise<void> {
@@ -206,6 +235,17 @@ document.documentElement.lang = uiLanguage();
 localizeDocument();
 setupTabs();
 $('export').addEventListener('click', () => void exportJson());
+$('undo').addEventListener('click', () => void stepHistory('wwm/undo'));
+$('redo').addEventListener('click', () => void stepHistory('wwm/redo'));
+// Only while the side panel has focus: on the page, ⌘Z belongs to the site's own editing.
+document.addEventListener('keydown', (e) => {
+  if (!(e.metaKey || e.ctrlKey) || e.altKey) return;
+  const key = e.key.toLowerCase();
+  if (key === 'z' && !e.shiftKey) void stepHistory('wwm/undo');
+  else if ((key === 'z' && e.shiftKey) || key === 'y') void stepHistory('wwm/redo');
+  else return;
+  e.preventDefault();
+});
 $('version').textContent = `v${chrome.runtime.getManifest().version}`;
 
 chrome.tabs.onActivated.addListener(() => void refreshActiveTab());

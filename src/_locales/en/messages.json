@@ -97,12 +97,8 @@
     "description": "Popover button tooltip"
   },
   "editNote": {
-    "message": "Note",
-    "description": "Popover button label"
-  },
-  "editNoteTitle": {
     "message": "Edit note",
-    "description": "Popover button tooltip"
+    "description": "Popover button label"
   },
   "delete": {
     "message": "Delete",
@@ -249,5 +245,67 @@
   "pdfPrint": {
     "message": "Print",
     "description": "PDF viewer toolbar"
+  },
+  "addNote": {
+    "message": "Add note",
+    "description": "Popover: add a note to an annotation without one"
+  },
+  "styleKeepOne": {
+    "message": "An annotation needs a style or a note — use Delete to remove it",
+    "description": "Disabled style button tooltip"
+  },
+  "deletedToast": {
+    "message": "Annotation deleted",
+    "description": "Toast after deleting"
+  },
+  "undo": {
+    "message": "Undo",
+    "description": "Toast action"
+  },
+  "historyCreate": {
+    "message": "create annotation",
+    "description": "Side panel undo/redo"
+  },
+  "historyDelete": {
+    "message": "delete annotation",
+    "description": "Side panel undo/redo"
+  },
+  "historyStyle": {
+    "message": "change style",
+    "description": "Side panel undo/redo"
+  },
+  "historyNote": {
+    "message": "edit note",
+    "description": "Side panel undo/redo"
+  },
+  "historyConfirm": {
+    "message": "confirm position",
+    "description": "Side panel undo/redo"
+  },
+  "undoNothing": {
+    "message": "Nothing to undo",
+    "description": "Side panel undo/redo"
+  },
+  "redoNothing": {
+    "message": "Nothing to redo",
+    "description": "Side panel undo/redo"
+  },
+  "undoAction": {
+    "message": "Undo: $action$ (⌘Z)",
+    "description": "Undo button tooltip",
+    "placeholders": {
+      "action": {
+        "content": "$1"
+      }
+    }
+  },
+  "redoAction": {
+    "message": "Redo: $action$ (⇧⌘Z)",
+    "description": "Redo button tooltip",
+    "placeholders": {
+      "action": {
+        "content": "$1"
+      }
+    }
   }
 }

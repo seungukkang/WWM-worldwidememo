@@ -2,20 +2,26 @@
  * Typed message contracts between content script, background and side panel.
  * Add new messages here first (AGENTS.md §5).
  */
+import type { HistoryAction } from '../core/history';
 import type { AnchorState, Annotation, PageRecord } from '../core/types';
 
 /** Requests handled by the background service worker. */
 export type BackgroundRequest =
   | { type: 'wwm/list'; pageKey: string }
   | { type: 'wwm/list-pages' }
-  | { type: 'wwm/upsert'; annotation: Annotation }
+  /** A user edit; recorded in the page's undo history under `action`. */
+  | { type: 'wwm/upsert'; annotation: Annotation; action: HistoryAction }
   | { type: 'wwm/delete'; pageKey: string; id: string }
   | { type: 'wwm/anchor-report'; pageKey: string; results: Array<{ id: string; anchor: AnchorState }> }
   | { type: 'wwm/export' }
   /** Does any stored PDF page belong to this URL? (auto-open in the WWM viewer) */
   | { type: 'wwm/pdf-lookup'; url: string }
   /** Navigate the sender's tab to the WWM PDF viewer for `url`. */
-  | { type: 'wwm/open-pdf'; url: string };
+  | { type: 'wwm/open-pdf'; url: string }
+  /** Undo the page's last edit; with `expectId`, only if that edit was on this annotation. */
+  | { type: 'wwm/undo'; pageKey: string; expectId?: string }
+  | { type: 'wwm/redo'; pageKey: string }
+  | { type: 'wwm/history'; pageKey: string };
 
 export interface BackgroundResponseMap {
   'wwm/list': { annotations: Annotation[] };
@@ -26,6 +32,10 @@ export interface BackgroundResponseMap {
   'wwm/export': { pages: PageRecord[] };
   'wwm/pdf-lookup': { known: boolean };
   'wwm/open-pdf': { ok: boolean };
+  'wwm/undo': { ok: boolean };
+  'wwm/redo': { ok: boolean };
+  /** The actions the next undo / redo would revert / reapply, if any. */
+  'wwm/history': { undo?: HistoryAction; redo?: HistoryAction };
 }
 
 export type BackgroundResponse<T extends BackgroundRequest['type']> = BackgroundResponseMap[T];

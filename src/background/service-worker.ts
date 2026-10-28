@@ -5,27 +5,41 @@
  * MV3 service workers are terminated when idle — keep no state in memory
  * that cannot be rebuilt from storage.
  */
+import {
+  HistoryStore,
+  recordEdit,
+  redoState,
+  takeRedo,
+  takeUndo,
+  undoState,
+  type HistoryEntry,
+  type PageHistory,
+} from '../core/history';
 import { AnnotationRepository, type KVStore } from '../core/repository';
-import type { AnchorState } from '../core/types';
+import type { AnchorState, Annotation } from '../core/types';
 import { isPdfPageKey, normalizePageKey } from '../core/url';
 import { t } from '../shared/i18n';
 import type { BackgroundRequest, Broadcast, ContentRequest } from '../shared/messages';
 import { pdfViewerUrl } from '../shared/pdf';
 
-class ChromeLocalKV implements KVStore {
+class ChromeStorageKV implements KVStore {
+  constructor(private readonly area: chrome.storage.StorageArea) {}
   async get<T>(key: string): Promise<T | undefined> {
-    const res = await chrome.storage.local.get(key);
+    const res = await this.area.get(key);
     return res[key] as T | undefined;
   }
   async set(entries: Record<string, unknown>): Promise<void> {
-    await chrome.storage.local.set(entries);
+    await this.area.set(entries);
   }
   async remove(keys: string[]): Promise<void> {
-    await chrome.storage.local.remove(keys);
+    await this.area.remove(keys);
   }
 }
 
-const repo = new AnnotationRepository(new ChromeLocalKV());
+const repo = new AnnotationRepository(new ChromeStorageKV(chrome.storage.local));
+// Undo history lives for the browser session (survives reloads and service
+// worker restarts, cleared when the browser closes).
+const history = new HistoryStore(new ChromeStorageKV(chrome.storage.session));
 
 // ---------------------------------------------------------------------------
 // Lifecycle
@@ -76,15 +90,40 @@ async function handle(msg: BackgroundRequest, sender: chrome.runtime.MessageSend
       return { pages: await repo.listPages() };
 
     case 'wwm/upsert': {
+      const before = await findAnnotation(msg.annotation.pageKey, msg.annotation.id);
       const annotation = await repo.upsert({ ...msg.annotation, updatedAt: new Date().toISOString() });
+      await record({ action: msg.action, before: before?.deletedAt ? null : (before ?? null), after: annotation });
       broadcast({ type: 'wwm/changed', pageKey: annotation.pageKey });
       return { annotation };
     }
 
     case 'wwm/delete': {
+      const before = await findAnnotation(msg.pageKey, msg.id);
       const ok = await repo.remove(msg.pageKey, msg.id);
+      const after = await findAnnotation(msg.pageKey, msg.id);
+      if (ok && before && after) await record({ action: 'delete', before, after });
       broadcast({ type: 'wwm/changed', pageKey: msg.pageKey });
       return { ok };
+    }
+
+    case 'wwm/undo':
+    case 'wwm/redo': {
+      const undo = msg.type === 'wwm/undo';
+      const expectId = msg.type === 'wwm/undo' ? msg.expectId : undefined;
+      const entry = await history.update(msg.pageKey, (h) => {
+        const next = expectId && h.undo.at(-1)?.after.id !== expectId ? null : undo ? takeUndo(h) : takeRedo(h);
+        return next ? { history: next.history, result: next.entry } : { history: h, result: null };
+      });
+      if (!entry) return { ok: false };
+      const now = new Date().toISOString();
+      await repo.upsert(undo ? undoState(entry, now) : redoState(entry, now));
+      broadcast({ type: 'wwm/changed', pageKey: msg.pageKey });
+      return { ok: true };
+    }
+
+    case 'wwm/history': {
+      const h = await history.get(msg.pageKey);
+      return { undo: h.undo.at(-1)?.action, redo: h.redo.at(-1)?.action };
     }
 
     case 'wwm/anchor-report': {
@@ -112,8 +151,15 @@ async function handle(msg: BackgroundRequest, sender: chrome.runtime.MessageSend
       await chrome.tabs.update(tabId, { url: pdfViewerUrl(msg.url) });
       return { ok: true };
     }
-
   }
+}
+
+async function findAnnotation(pageKey: string, id: string): Promise<Annotation | undefined> {
+  return (await repo.getPage(pageKey))?.annotations.find((a) => a.id === id);
+}
+
+function record(entry: HistoryEntry): Promise<void> {
+  return history.update(entry.after.pageKey, (h: PageHistory) => ({ history: recordEdit(h, entry), result: undefined }));
 }
 
 /** Persist anchor status changes only (avoid rewriting storage on every visit). */
