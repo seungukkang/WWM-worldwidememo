@@ -1,0 +1,38 @@
+/*
+ * Injected into every page. Only ::highlight(wwm-*) rules are allowed here —
+ * never style page elements directly (AGENTS.md §12). Toolbar/popover styles
+ * live inside the Shadow DOM (ui.ts).
+ */
+
+::highlight(wwm-hl-yellow) { background-color: rgba(255, 214, 0, 0.42); }
+::highlight(wwm-hl-green)  { background-color: rgba(48, 196, 120, 0.32); }
+::highlight(wwm-hl-blue)   { background-color: rgba(64, 156, 255, 0.30); }
+::highlight(wwm-hl-pink)   { background-color: rgba(255, 92, 170, 0.30); }
+
+::highlight(wwm-underline) {
+  text-decoration: underline;
+  text-decoration-color: #e5484d;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+/* Faux bold: ::highlight() cannot change font-weight. Verify in Spike S1. */
+::highlight(wwm-bold) {
+  text-shadow: 0.45px 0 0 currentColor, -0.15px 0 0 currentColor;
+}
+
+::highlight(wwm-note) {
+  text-decoration: underline dotted;
+  text-decoration-color: #8e4ec6;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+::highlight(wwm-review) {
+  text-decoration: underline dashed;
+  text-decoration-color: #f76b15;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+::highlight(wwm-flash) { background-color: rgba(255, 140, 0, 0.55); }

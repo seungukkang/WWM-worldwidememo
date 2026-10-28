@@ -1,0 +1,157 @@
+{
+  "extName": {
+    "message": "WWM — WorldWideMemo"
+  },
+  "extShortName": {
+    "message": "WWM"
+  },
+  "extDescription": {
+    "message": "웹 어디서나 하이라이트·밑줄·볼드·메모. 사이트가 바뀌어도 주석이 살아남습니다."
+  },
+  "actionTitle": {
+    "message": "WWM 사이드패널 열기"
+  },
+  "cmdHighlight": {
+    "message": "선택 영역 하이라이트"
+  },
+  "cmdNote": {
+    "message": "선택 영역에 메모 추가"
+  },
+  "cmdUnderline": {
+    "message": "선택 영역 밑줄"
+  },
+  "menuHighlight": {
+    "message": "WWM: 하이라이트"
+  },
+  "menuNote": {
+    "message": "WWM: 메모 추가"
+  },
+  "colorYellow": {
+    "message": "노랑"
+  },
+  "colorGreen": {
+    "message": "초록"
+  },
+  "colorBlue": {
+    "message": "파랑"
+  },
+  "colorPink": {
+    "message": "분홍"
+  },
+  "toolbarHighlight": {
+    "message": "하이라이트 ($color$)",
+    "placeholders": {
+      "color": {
+        "content": "$1"
+      }
+    }
+  },
+  "toolbarUnderline": {
+    "message": "밑줄"
+  },
+  "toolbarBold": {
+    "message": "볼드"
+  },
+  "toolbarNote": {
+    "message": "메모"
+  },
+  "toolbarNoteTitle": {
+    "message": "메모 추가"
+  },
+  "editorPlaceholder": {
+    "message": "메모 입력 (⌘/Ctrl+Enter 저장, Esc 취소)"
+  },
+  "save": {
+    "message": "저장"
+  },
+  "cancel": {
+    "message": "취소"
+  },
+  "confirmPosition": {
+    "message": "위치 확인"
+  },
+  "confirmPositionTitle": {
+    "message": "이 위치가 맞음"
+  },
+  "editNote": {
+    "message": "메모"
+  },
+  "editNoteTitle": {
+    "message": "메모 편집"
+  },
+  "delete": {
+    "message": "삭제"
+  },
+  "deleteTitle": {
+    "message": "주석 삭제"
+  },
+  "statusMoved": {
+    "message": "페이지 변경 후 자동 이동됨"
+  },
+  "statusNeedsReview": {
+    "message": "위치 확인 필요"
+  },
+  "tabThisPage": {
+    "message": "이 페이지"
+  },
+  "tabAll": {
+    "message": "전체"
+  },
+  "orphansHeading": {
+    "message": "찾지 못한 주석"
+  },
+  "exportJson": {
+    "message": "JSON 내보내기"
+  },
+  "emptyPage": {
+    "message": "이 페이지에는 아직 주석이 없습니다. 텍스트를 드래그해 보세요."
+  },
+  "emptyAll": {
+    "message": "저장된 주석이 없습니다."
+  },
+  "bannerUpdated": {
+    "message": "사이트가 업데이트된 것 같습니다"
+  },
+  "badgeMoved": {
+    "message": "자동 이동"
+  },
+  "badgeNeedsReview": {
+    "message": "확인 필요"
+  },
+  "badgeOrphaned": {
+    "message": "찾지 못함"
+  },
+  "pageSummary": {
+    "message": "주석 $count$개 · $date$",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      },
+      "date": {
+        "content": "$2"
+      }
+    }
+  },
+  "imagePlaceholder": {
+    "message": "(이미지)"
+  },
+  "localeCode": {
+    "message": "ko"
+  },
+  "bannerReview": {
+    "message": "확인 필요 $count$개",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "bannerMissing": {
+    "message": "찾지 못함 $count$개",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  }
+}

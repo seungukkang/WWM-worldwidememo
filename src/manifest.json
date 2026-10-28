@@ -1,0 +1,55 @@
+{
+  "manifest_version": 3,
+  "name": "__MSG_extName__",
+  "short_name": "__MSG_extShortName__",
+  "version": "0.0.1",
+  "description": "__MSG_extDescription__",
+  "default_locale": "en",
+  "homepage_url": "https://github.com/seungukkang/WWM-worldwidememo",
+  "minimum_chrome_version": "116",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_title": "__MSG_actionTitle__",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "side_panel": {
+    "default_path": "sidepanel/index.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "permissions": ["storage", "unlimitedStorage", "sidePanel", "contextMenus"],
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "commands": {
+    "highlight": {
+      "suggested_key": { "default": "Alt+Shift+H" },
+      "description": "__MSG_cmdHighlight__"
+    },
+    "note": {
+      "suggested_key": { "default": "Alt+Shift+N" },
+      "description": "__MSG_cmdNote__"
+    },
+    "underline": {
+      "suggested_key": { "default": "Alt+Shift+U" },
+      "description": "__MSG_cmdUnderline__"
+    }
+  }
+}

@@ -1,0 +1,8 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>Diffusion model 입문</title><style>body{margin:0;background:#fff;color:#1d1d1f;font:18px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo","Noto Sans KR",sans-serif}header{padding:18px 48px;border-bottom:1px solid #eee;font-weight:700;color:#555;font-size:15px}main{max-width:720px;margin:0 auto;padding:28px 40px}h1{font-size:34px;line-height:1.25;margin:8px 0 6px}.meta{color:#888;font-size:14px;margin-bottom:22px}.note{background:#fff7e0;border:1px solid #f2d27a;border-radius:8px;padding:8px 14px;font-size:14px;color:#7a5b00;margin-bottom:18px}p{margin:0 0 16px}</style></head><body><header>Lab Notes</header><main><h1>Diffusion model 입문</h1><div class="meta">6분 분량 · 수정됨</div>
+<div class="note">업데이트: 독자 피드백을 반영해 글을 수정했습니다.</div>
+<p>Diffusion model은 데이터에 노이즈를 조금씩 더하는 과정을 거꾸로 되돌리는 방법으로 데이터를 생성한다.</p>
+<p>학습 단계에서는 이미지에 Gaussian noise를 한 단계씩 더해, 결국 노이즈만 남을 때까지 망가뜨린다.</p>
+<p>그다음 신경망이 각 단계마다 추가된 노이즈를 예측하도록 학습한다.</p>
+<p>샘플링할 때는 순수한 노이즈에서 출발해 예측한 노이즈를 반복해서 제거한다.</p>
+<p>최근에는 distillation 같은 기법으로 단계 수를 몇 번 수준까지 줄였다.</p>
+</main></body></html>

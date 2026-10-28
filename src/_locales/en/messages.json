@@ -1,0 +1,201 @@
+{
+  "extName": {
+    "message": "WWM — WorldWideMemo",
+    "description": "Extension name (≤75 chars)"
+  },
+  "extShortName": {
+    "message": "WWM",
+    "description": "Short name"
+  },
+  "extDescription": {
+    "message": "Highlight, underline, bold and annotate any web page. Your notes survive when the site changes.",
+    "description": "Store/manifest description (≤132 chars)"
+  },
+  "actionTitle": {
+    "message": "Open WWM side panel",
+    "description": "Toolbar button tooltip"
+  },
+  "cmdHighlight": {
+    "message": "Highlight selection",
+    "description": "Keyboard command"
+  },
+  "cmdNote": {
+    "message": "Add a note to selection",
+    "description": "Keyboard command"
+  },
+  "cmdUnderline": {
+    "message": "Underline selection",
+    "description": "Keyboard command"
+  },
+  "menuHighlight": {
+    "message": "WWM: Highlight",
+    "description": "Context menu"
+  },
+  "menuNote": {
+    "message": "WWM: Add note",
+    "description": "Context menu"
+  },
+  "colorYellow": {
+    "message": "Yellow",
+    "description": "Highlight color"
+  },
+  "colorGreen": {
+    "message": "Green",
+    "description": "Highlight color"
+  },
+  "colorBlue": {
+    "message": "Blue",
+    "description": "Highlight color"
+  },
+  "colorPink": {
+    "message": "Pink",
+    "description": "Highlight color"
+  },
+  "toolbarHighlight": {
+    "message": "Highlight ($color$)",
+    "description": "Toolbar button tooltip",
+    "placeholders": {
+      "color": {
+        "content": "$1"
+      }
+    }
+  },
+  "toolbarUnderline": {
+    "message": "Underline",
+    "description": "Toolbar button tooltip"
+  },
+  "toolbarBold": {
+    "message": "Bold",
+    "description": "Toolbar button tooltip"
+  },
+  "toolbarNote": {
+    "message": "Note",
+    "description": "Toolbar button label"
+  },
+  "toolbarNoteTitle": {
+    "message": "Add a note",
+    "description": "Toolbar button tooltip"
+  },
+  "editorPlaceholder": {
+    "message": "Write a note (⌘/Ctrl+Enter to save, Esc to cancel)",
+    "description": "Note editor placeholder"
+  },
+  "save": {
+    "message": "Save",
+    "description": "Button"
+  },
+  "cancel": {
+    "message": "Cancel",
+    "description": "Button"
+  },
+  "confirmPosition": {
+    "message": "Confirm spot",
+    "description": "Popover button: accept the suggested position"
+  },
+  "confirmPositionTitle": {
+    "message": "This is the right spot",
+    "description": "Popover button tooltip"
+  },
+  "editNote": {
+    "message": "Note",
+    "description": "Popover button label"
+  },
+  "editNoteTitle": {
+    "message": "Edit note",
+    "description": "Popover button tooltip"
+  },
+  "delete": {
+    "message": "Delete",
+    "description": "Button"
+  },
+  "deleteTitle": {
+    "message": "Delete annotation",
+    "description": "Button tooltip"
+  },
+  "statusMoved": {
+    "message": "Moved automatically after the page changed",
+    "description": "Popover status"
+  },
+  "statusNeedsReview": {
+    "message": "Please confirm the position",
+    "description": "Popover status"
+  },
+  "tabThisPage": {
+    "message": "This page",
+    "description": "Side panel tab"
+  },
+  "tabAll": {
+    "message": "All",
+    "description": "Side panel tab"
+  },
+  "orphansHeading": {
+    "message": "Annotations not found",
+    "description": "Side panel section"
+  },
+  "exportJson": {
+    "message": "Export JSON",
+    "description": "Side panel button"
+  },
+  "emptyPage": {
+    "message": "No annotations on this page yet. Try selecting some text.",
+    "description": "Side panel empty state"
+  },
+  "emptyAll": {
+    "message": "No saved annotations yet.",
+    "description": "Side panel empty state"
+  },
+  "bannerUpdated": {
+    "message": "This site seems to have changed",
+    "description": "Side panel banner prefix"
+  },
+  "badgeMoved": {
+    "message": "Moved",
+    "description": "Status badge"
+  },
+  "badgeNeedsReview": {
+    "message": "Review",
+    "description": "Status badge"
+  },
+  "badgeOrphaned": {
+    "message": "Not found",
+    "description": "Status badge"
+  },
+  "pageSummary": {
+    "message": "$count$ annotations · $date$",
+    "description": "All-pages list item",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      },
+      "date": {
+        "content": "$2"
+      }
+    }
+  },
+  "imagePlaceholder": {
+    "message": "(image)",
+    "description": "Placeholder for image annotations"
+  },
+  "localeCode": {
+    "message": "en",
+    "description": "Locale tag of this catalog (do not translate; use the folder name)"
+  },
+  "bannerReview": {
+    "message": "$count$ to review",
+    "description": "Banner part",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "bannerMissing": {
+    "message": "$count$ not found",
+    "description": "Banner part",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  }
+}

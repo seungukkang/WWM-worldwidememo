@@ -1,0 +1,8 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>A gentle introduction to diffusion models</title><style>body{margin:0;background:#fff;color:#1d1d1f;font:18px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo","Noto Sans KR",sans-serif}header{padding:18px 48px;border-bottom:1px solid #eee;font-weight:700;color:#555;font-size:15px}main{max-width:720px;margin:0 auto;padding:28px 40px}h1{font-size:34px;line-height:1.25;margin:8px 0 6px}.meta{color:#888;font-size:14px;margin-bottom:22px}.note{background:#fff7e0;border:1px solid #f2d27a;border-radius:8px;padding:8px 14px;font-size:14px;color:#7a5b00;margin-bottom:18px}p{margin:0 0 16px}</style></head><body><header>Lab Notes</header><main><h1>A gentle introduction to diffusion models</h1><div class="meta">6 min read</div>
+<p>Diffusion models learn to generate data by reversing a gradual noising process.</p>
+<p>During training, Gaussian noise is added to an image step by step until nothing but noise remains.</p>
+<p>A neural network is then trained to predict the noise that was added at each step.</p>
+<p>At sampling time, we start from pure noise and repeatedly remove the predicted noise.</p>
+<p>Early samplers needed about a thousand steps, which made generation painfully slow.</p>
+<p>Newer techniques such as distillation reduce this to just a handful of steps.</p>
+</main></body></html>

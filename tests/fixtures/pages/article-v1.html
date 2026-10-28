@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="ko">
+<head><meta charset="utf-8"><title>Diffusion models 입문 (v1)</title></head>
+<body>
+  <nav>Home · Blog · About</nav>
+  <article>
+    <h1>Diffusion models 입문</h1>
+    <p id="p1">Diffusion model은 데이터에 점진적으로 noise를 더하는 forward process와, 이를 거꾸로 되돌리는 reverse process로 구성된다.</p>
+    <p id="p2">The reverse process is parameterized by a neural network that predicts the noise added at each step.</p>
+    <p id="p3">Score matching 관점에서 보면, 네트워크는 각 noise level에서 데이터 분포의 score를 추정한다.</p>
+    <p id="p4">Sampling is slow because it requires hundreds of network evaluations.</p>
+    <p id="p5">이 문단은 v2에서 삭제될 예정인 실험적 주장이다: 모든 생성 모델은 결국 diffusion으로 수렴한다.</p>
+    <p id="p6">In practice, the model is trained with a simple MSE loss. Later, the model is distilled for faster sampling.</p>
+  </article>
+  <script>window.__ignored = "this script text must not be indexed";</script>
+</body>
+</html>

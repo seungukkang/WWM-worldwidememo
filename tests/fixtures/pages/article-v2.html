@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="ko">
+<head><meta charset="utf-8"><title>Diffusion models 입문 (v2)</title></head>
+<body>
+  <nav>Home · Blog · About · Newsletter</nav>
+  <aside>업데이트(2026-10): 독자 피드백을 반영해 일부 문단을 수정했습니다.</aside>
+  <article>
+    <h1>Diffusion models 입문</h1>
+    <p id="p1">Diffusion model은 데이터에 점진적으로 noise를 더하는 <em>forward process</em>와, 이를 거꾸로 되돌리는 reverse process로 구성된다.</p>
+    <p id="p2">The reverse process is parameterized by a deep neural network that predicts the noise added at each step.</p>
+    <p id="p3">네트워크가 학습하는 대상은 결국 서로 다른 noise 수준마다의 log-density gradient, 즉 score다.</p>
+    <p id="p4">Sampling is slow because it requires hundreds of network evaluations.</p>
+    <p id="p6">In practice, the model is trained with a simple MSE loss. Later, the model is distilled for faster sampling.</p>
+  </article>
+</body>
+</html>

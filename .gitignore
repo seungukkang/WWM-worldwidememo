@@ -1,0 +1,27 @@
+# ---- Internal (kept local, never pushed) ------------------------------------
+# Planning, design docs, ADRs, reports and agent instructions live only in the
+# local vault. See docs/guides/git-workflow.md (local).
+docs/
+AGENTS.md
+CLAUDE.md
+.claude/
+
+# ---- Build / tooling --------------------------------------------------------
+node_modules/
+dist/
+release/
+coverage/
+.vitest/
+*.log
+.npm-ci.log
+
+# ---- OS / editor / secrets --------------------------------------------------
+.DS_Store
+.idea/
+.vscode/
+.env
+.env.*
+*.pem
+
+# ---- Local scratch ----------------------------------------------------------
+.tmp/
